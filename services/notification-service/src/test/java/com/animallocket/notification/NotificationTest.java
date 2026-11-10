@@ -20,6 +20,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -86,6 +87,21 @@ class NotificationTest {
     }
 
     @Test
+    void notificationTextNeverContainsIdentities() {
+        var planner = planner(new FakeDirectory(Map.of(), Map.of()));
+        var out = planner.plan(env(EventTypes.POST_LIKED, new Events.PostLiked("p1", "authorId", "likerSecretId")));
+        Notification n = out.get(0);
+        assertFalse((n.title() + n.body() + n.data()).contains("likerSecretId"));
+        assertEquals("authorId", n.recipientPublicId());
+    }
+
+    @Test
+    void unknownEventsProduceNothing() {
+        var planner = planner(new FakeDirectory(Map.of(), Map.of()));
+        assertTrue(planner.plan(env(EventTypes.USER_BLOCKED, new Events.UserBlocked("a", "b"))).isEmpty());
+    }
+
+    @Test
     void transientErrorsRetryWithBackoffThenSucceed() {
         var dir = new FakeDirectory(Map.of("u", List.of("tok1")), Map.of());
         var sender = new ScriptedSender(PushSender.Result.TRANSIENT_ERROR, PushSender.Result.TRANSIENT_ERROR, PushSender.Result.OK);
@@ -119,6 +135,29 @@ class NotificationTest {
         dispatcher(dir, sender, new ArrayList<>()).dispatch(new Notification("u", "T", "t", "b", Map.of()));
         assertEquals(1.0, registry.counter("push.sent", "type", "T").count());
         assertEquals(1.0, registry.counter("push.invalid_token").count());
+        assertEquals(1.0, registry.counter("push.dropped", "type", "T").count());
+    }
+
+    @Test
+    void directoryFailureIsSwallowed() {
+        var dir = new FakeDirectory(Map.of("u", List.of("tok")), Map.of());
+        dir.failTokens = true;
+        var sender = new ScriptedSender(PushSender.Result.OK);
+        dispatcher(dir, sender, new ArrayList<>()).dispatch(new Notification("u", "T", "t", "b", Map.of()));
+        assertEquals(0, sender.calls);
+        assertEquals(1.0, registry.counter("push.skipped", "reason", "directory_error").count());
+    }
+
+    @Test
+    void senderExceptionCountsAsTransientError() {
+        var dir = new FakeDirectory(Map.of("u", List.of("tok")), Map.of());
+        int[] calls = {0};
+        PushSender throwing = (token, title, body, data) -> {
+            calls[0]++;
+            throw new IllegalStateException("fcm down");
+        };
+        dispatcher(dir, throwing, new ArrayList<>()).dispatch(new Notification("u", "T", "t", "b", Map.of()));
+        assertEquals(3, calls[0]);
         assertEquals(1.0, registry.counter("push.dropped", "type", "T").count());
     }
 }
