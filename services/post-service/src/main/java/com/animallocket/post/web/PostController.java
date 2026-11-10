@@ -5,6 +5,9 @@ import com.animallocket.post.dto.PostDtos;
 import com.animallocket.post.service.PostService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -26,5 +29,16 @@ public class PostController {
     public PostDtos.PostView create(@RequestHeader(Headers.PUBLIC_ID) String me,
                                     @Valid @RequestBody PostDtos.CreatePostRequest req) {
         return posts.create(me, req);
+    }
+
+    @GetMapping("/posts/{id}")
+    public PostDtos.PostView get(@RequestHeader(Headers.PUBLIC_ID) String me, @PathVariable String id) {
+        return posts.get(me, id);
+    }
+
+    @DeleteMapping("/posts/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@RequestHeader(Headers.PUBLIC_ID) String me, @PathVariable String id) {
+        posts.delete(me, id);
     }
 }
