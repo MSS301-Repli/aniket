@@ -15,7 +15,9 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -43,6 +45,8 @@ class DiscoveryServiceTest {
 
     static class FakeUsers implements Gateways.UserGateway {
         final Map<String, Gateways.Profile> profiles = new HashMap<>();
+        final Map<String, List<String>> friends = new HashMap<>();
+        final Map<String, List<String>> blocked = new HashMap<>();
 
         void add(String id, String ageGroup, boolean discoverable) {
             profiles.put(id, new Gateways.Profile(id, "alias-" + id, "fox", "1:fox:0:none", ageGroup, discoverable, true, false));
@@ -50,6 +54,10 @@ class DiscoveryServiceTest {
 
         public Gateways.Profile profile(String id) {
             return profiles.get(id);
+        }
+
+        public Gateways.Exclusions exclusions(String id) {
+            return new Gateways.Exclusions(friends.getOrDefault(id, List.of()), blocked.getOrDefault(id, List.of()));
         }
     }
 
@@ -89,5 +97,34 @@ class DiscoveryServiceTest {
 
         svc.clearLocation("me");
         assertTrue(store.location("ADULT", "me").isEmpty(), "vị trí phải bị xoá ngay");
+    }
+
+    @Test
+    void presenceIsOnlyVisibleForFriends() {
+        users.add("me", "ADULT", true);
+        users.add("friend", "ADULT", true);
+        users.add("stranger", "ADULT", true);
+        users.friends.put("me", List.of("friend"));
+        svc.heartbeat("friend");
+        svc.heartbeat("stranger");
+
+        var res = svc.presence("me", Set.of("friend", "stranger"));
+        assertEquals(Map.of("friend", true), res.online());
+
+        clock.now = clock.now.plusSeconds(90); // quá 60 giây không heartbeat
+        assertEquals(Map.of("friend", false), svc.presence("me", Set.of("friend", "stranger")).online());
+    }
+
+    @Test
+    void nonDiscoverableUsersAreVisibleOnlineToFriendsButNeverEnterTheDeck() {
+        users.add("me", "ADULT", true);
+        users.add("shy", "ADULT", false);      // đã tắt khám phá nhưng vẫn mở app
+        users.friends.put("me", List.of("shy"));
+        svc.updateLocation("me", LAT, LON);
+        svc.heartbeat("shy");
+
+        assertEquals(Map.of("shy", true), svc.presence("me", Set.of("shy")).online(), "bạn bè vẫn thấy trạng thái online");
+        assertTrue(store.online("ADULT", clock.instant().minusSeconds(60), 100).stream().noneMatch("shy"::equals),
+                "không được lọt vào danh sách ứng viên của bộ thẻ");
     }
 }
