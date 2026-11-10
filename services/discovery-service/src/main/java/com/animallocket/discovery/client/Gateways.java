@@ -26,4 +26,9 @@ public final class Gateways {
         /** Kết quả: MATCHED, REQUESTED, ALREADY_FRIENDS, ALREADY_REQUESTED, BLOCKED. */
         String swipeRight(String from, String to);
     }
+
+    public interface BillingGateway {
+        /** Trừ một Boost khỏi ví. false nếu không đủ số dư. */
+        boolean consumeBoost(String publicId);
+    }
 }
