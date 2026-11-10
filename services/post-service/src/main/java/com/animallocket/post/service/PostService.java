@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -270,6 +271,23 @@ public class PostService {
         } else if (!state.ready()) {
             quota.refund(p.getAuthorId(), p.getCreatedAt());
         }
+    }
+
+    /** Xoá toàn bộ dữ liệu của người dùng đã xoá tài khoản (bài, like, bình luận của họ). */
+    @Transactional
+    public void onUserDeleted(String publicId) {
+        for (Post p : posts.findByAuthorId(publicId)) {
+            likes.deleteAllOfPost(p.getId());
+            comments.deleteAllOfPost(p.getId());
+            posts.delete(p);
+        }
+        for (Comment c : new ArrayList<>(comments.findByAuthorId(publicId))) {
+            posts.decComments(c.getPostId());
+            comments.delete(c);
+        }
+        likes.deleteAllOfUser(publicId);
+        mediaStates.deleteByOwnerId(publicId);
+        users.invalidateFriends(publicId);
     }
 
     // ---------------- nội bộ ----------------
