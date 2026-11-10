@@ -14,3 +14,7 @@ cd aniket
 1. Tạo branch mới từ `main`.
 2. Commit theo [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, ...).
 3. Mở Pull Request vào `main`.
+
+## Trạng thái
+
+Repo đang ở giai đoạn khởi tạo.
