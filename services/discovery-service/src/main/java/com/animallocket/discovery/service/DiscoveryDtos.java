@@ -2,6 +2,7 @@ package com.animallocket.discovery.service;
 
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
@@ -23,7 +24,15 @@ public final class DiscoveryDtos {
                        boolean online, boolean boosted) {
     }
 
-    public record CardsResponse(List<Card> cards, boolean degraded) {
+    public record CardsResponse(List<Card> cards, boolean degraded, int swipesLeftToday) {
+    }
+
+    public enum Direction { LEFT, RIGHT }
+
+    public record SwipeRequest(@NotBlank String targetPublicId, @NotNull Direction direction) {
+    }
+
+    public record SwipeResponse(String result, int swipesLeftToday) {
     }
 
     public record PresenceResponse(Map<String, Boolean> online) {

@@ -22,5 +22,8 @@ public final class Gateways {
         Map<String, Profile> profiles(List<String> publicIds);
 
         Exclusions exclusions(String publicId);
+
+        /** Kết quả: MATCHED, REQUESTED, ALREADY_FRIENDS, ALREADY_REQUESTED, BLOCKED. */
+        String swipeRight(String from, String to);
     }
 }

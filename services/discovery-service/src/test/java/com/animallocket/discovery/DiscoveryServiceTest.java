@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +50,9 @@ class DiscoveryServiceTest {
         final Map<String, Gateways.Profile> profiles = new HashMap<>();
         final Map<String, List<String>> friends = new HashMap<>();
         final Map<String, List<String>> blocked = new HashMap<>();
+        String swipeResult = "REQUESTED";
+        boolean swipeFails;
+        final List<String> swipes = new ArrayList<>();
 
         void add(String id, String ageGroup, boolean discoverable) {
             profiles.put(id, new Gateways.Profile(id, "alias-" + id, "fox", "1:fox:0:none", ageGroup, discoverable, true, false));
@@ -69,6 +73,14 @@ class DiscoveryServiceTest {
         public Gateways.Exclusions exclusions(String id) {
             return new Gateways.Exclusions(friends.getOrDefault(id, List.of()), blocked.getOrDefault(id, List.of()));
         }
+
+        public String swipeRight(String from, String to) {
+            if (swipeFails) {
+                throw new ApiException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "X", "down");
+            }
+            swipes.add(from + ">" + to);
+            return swipeResult;
+        }
     }
 
     final FakeUsers users = new FakeUsers();
@@ -80,7 +92,7 @@ class DiscoveryServiceTest {
 
     @BeforeEach
     void setUp() {
-        svc = new DiscoveryService(store, users, privacy, kv, clock, Duration.ofMinutes(30), 10_000, 5_000, 1000);
+        svc = new DiscoveryService(store, users, privacy, kv, clock, 3, 6, Duration.ofMinutes(30), 10_000, 5_000, 1000);
     }
 
     /** Đặt người dùng tại vị trí cách "me" khoảng dxMeters về phía đông. */
@@ -213,8 +225,8 @@ class DiscoveryServiceTest {
 
     @Test
     void searchesAreRateLimited() {
-        DiscoveryService limited = new DiscoveryService(store, users, privacy, new InMemoryKeyValueStore(), clock, Duration.ofMinutes(30), 10_000, 5_000,
-        2);
+        DiscoveryService limited = new DiscoveryService(store, users, privacy, new InMemoryKeyValueStore(), clock, 3, 6, Duration.ofMinutes(30), 10_000,
+        5_000, 2);
         users.add("me", "ADULT", true);
         limited.cards("me", 5);
         limited.cards("me", 5);
@@ -249,5 +261,80 @@ class DiscoveryServiceTest {
         assertEquals(Map.of("shy", true), svc.presence("me", Set.of("shy")).online(), "bạn bè vẫn thấy trạng thái online");
         assertTrue(store.online("ADULT", clock.instant().minusSeconds(60), 100).stream().noneMatch("shy"::equals),
                 "không được lọt vào danh sách ứng viên của bộ thẻ");
+    }
+
+    @Test
+    void swipeLeftHidesCardAndSwipeRightIsRecorded() {
+        users.add("me", "ADULT", true);
+        users.add("a", "ADULT", true);
+        users.add("b", "ADULT", true);
+        svc.updateLocation("me", LAT, LON);
+        place("a", 100);
+        place("b", 200);
+
+        assertEquals("SKIPPED", svc.swipe("me", "a", DiscoveryDtos.Direction.LEFT).result());
+        assertEquals(List.of("b"), cardIds("me"));
+        assertEquals("REQUESTED", svc.swipe("me", "b", DiscoveryDtos.Direction.RIGHT).result());
+        assertTrue(cardIds("me").isEmpty(), "đã quẹt phải thì không hiện lại");
+
+        // Quẹt trái chỉ nhớ 30 ngày.
+        clock.now = clock.now.plus(Duration.ofDays(31));
+        assertEquals(List.of("a"), cardIds("me"));
+    }
+
+    @Test
+    void rightSwipesAreLimitedPerDayAndFailuresAreRefunded() {
+        users.add("me", "ADULT", true);
+        for (int i = 0; i < 6; i++) {
+            users.add("t" + i, "ADULT", true);
+        }
+        // hạn mức free = 3
+        for (int i = 0; i < 3; i++) {
+            assertEquals(2 - i, svc.swipe("me", "t" + i, DiscoveryDtos.Direction.RIGHT).swipesLeftToday());
+        }
+        ApiException e = assertThrows(ApiException.class, () -> svc.swipe("me", "t3", DiscoveryDtos.Direction.RIGHT));
+        assertEquals("SWIPE_LIMIT", e.code());
+
+        // Sang ngày mới (giờ Việt Nam) thì được quẹt tiếp.
+        clock.now = clock.now.plus(Duration.ofHours(24));
+        assertEquals("REQUESTED", svc.swipe("me", "t3", DiscoveryDtos.Direction.RIGHT).result());
+    }
+
+    @Test
+    void blockedOrAlreadyFriendsOrServiceErrorsDoNotConsumeQuota() {
+        users.add("me", "ADULT", true);
+        users.add("x", "ADULT", true);
+        users.swipeResult = "BLOCKED";
+        assertEquals(3, svc.swipe("me", "x", DiscoveryDtos.Direction.RIGHT).swipesLeftToday());
+        users.swipeResult = "ALREADY_FRIENDS";
+        assertEquals(3, svc.swipe("me", "x", DiscoveryDtos.Direction.RIGHT).swipesLeftToday());
+        users.swipeFails = true;
+        assertThrows(ApiException.class, () -> svc.swipe("me", "x", DiscoveryDtos.Direction.RIGHT));
+        users.swipeFails = false;
+        users.swipeResult = "MATCHED";
+        assertEquals(2, svc.swipe("me", "x", DiscoveryDtos.Direction.RIGHT).swipesLeftToday());
+    }
+
+    @Test
+    void cannotSwipeSelf() {
+        assertThrows(ApiException.class, () -> svc.swipe("me", "me", DiscoveryDtos.Direction.RIGHT));
+    }
+
+    @Test
+    void turningDiscoveryOffRemovesLocationButKeepsSwipeHistory() {
+        users.add("me", "ADULT", true);
+        users.add("a", "ADULT", true);
+        users.add("b", "ADULT", true);
+        svc.updateLocation("me", LAT, LON);
+        place("a", 100);
+        place("b", 200);
+        svc.swipe("me", "a", DiscoveryDtos.Direction.LEFT);
+
+        svc.clearLocation("me");
+
+        assertTrue(store.location("ADULT", "me").isEmpty(), "vị trí phải bị xoá ngay");
+        users.add("me", "ADULT", true); // bật lại
+        svc.updateLocation("me", LAT, LON);
+        assertEquals(List.of("b"), cardIds("me"), "người đã quẹt trái vẫn bị ẩn sau khi bật lại");
     }
 }
