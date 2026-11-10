@@ -103,6 +103,25 @@ public class PostService {
         return view(me, p, Map.of(), likes.existsByPostIdAndUserId(postId, me) ? Set.of(postId) : Set.of());
     }
 
+    /** Feed: bài đã PUBLISHED của bạn bè và của chính mình, mới nhất trước, phân trang theo thời điểm đăng. */
+    @Transactional(readOnly = true)
+    public PostDtos.FeedPage feed(String me, Instant before, int limit) {
+        Set<String> authors;
+        try {
+            authors = new HashSet<>(users.friendIds(me));
+        } catch (ApiException e) {
+            return new PostDtos.FeedPage(List.of(), null, true); // fail soft: ẩn bài khi không biết ai là bạn
+        }
+        authors.add(me);
+        int size = Math.max(1, Math.min(limit, MAX_PAGE));
+        List<Post> page = posts.findByAuthorIdInAndStatusAndPublishedAtLessThanOrderByPublishedAtDesc(
+                authors, Post.Status.PUBLISHED, before == null ? Instant.now().plusSeconds(60) : before,
+                PageRequest.of(0, size));
+        List<PostDtos.PostView> items = views(me, page);
+        Instant next = page.size() == size ? page.get(page.size() - 1).getPublishedAt() : null;
+        return new PostDtos.FeedPage(items, next, false);
+    }
+
     /**
      * Bài của một người, mới nhất trước. Chính mình: mọi bài trừ DELETED (phân trang theo createdAt).
      * Bạn bè: chỉ PUBLISHED (phân trang theo publishedAt). Người khác, hoặc không xác minh được quan hệ:
