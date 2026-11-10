@@ -23,14 +23,11 @@ public class Entitlement {
     @Column(nullable = false, length = 10)
     private String plan;
     private Instant expiresAt;
-    @Column(nullable = false)
-    private Instant updatedAt = Instant.now();
 
     public Entitlement(String publicId, String plan, Instant expiresAt) {
         this.publicId = publicId;
         this.plan = plan;
         this.expiresAt = expiresAt;
-        this.updatedAt = Instant.now();
     }
 
     public boolean isActivePro() {
