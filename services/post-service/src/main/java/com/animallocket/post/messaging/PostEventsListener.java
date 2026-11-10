@@ -8,6 +8,7 @@ import com.animallocket.common.event.Events;
 import com.animallocket.outbox.IdempotencyService;
 import com.animallocket.post.client.UserDirectory;
 import com.animallocket.post.service.PostService;
+import com.animallocket.post.service.QuotaService;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,15 +17,18 @@ import org.springframework.transaction.annotation.Transactional;
 public class PostEventsListener {
     private final IdempotencyService idempotency;
     private final PostService posts;
+    private final QuotaService quota;
     private final UserDirectory users;
 
-    public PostEventsListener(IdempotencyService idempotency, PostService posts, UserDirectory users) {
+    public PostEventsListener(IdempotencyService idempotency, PostService posts, QuotaService quota,
+                              UserDirectory users) {
         this.idempotency = idempotency;
         this.posts = posts;
+        this.quota = quota;
         this.users = users;
     }
 
-    @KafkaListener(topics = {Topics.MEDIA, Topics.USER, Topics.FRIEND}, groupId = "post-service")
+    @KafkaListener(topics = {Topics.MEDIA, Topics.USER, Topics.FRIEND, Topics.BILLING}, groupId = "post-service")
     @Transactional
     public void onMessage(String json) {
         handle(EventJson.read(json));
@@ -60,6 +64,11 @@ public class PostEventsListener {
                 var p = e.payloadAs(Events.FriendRemoved.class);
                 users.invalidateFriends(p.userAPublicId(), p.userBPublicId());
             }
+            case EventTypes.SUBSCRIPTION_ACTIVATED -> {
+                var p = e.payloadAs(Events.SubscriptionChanged.class);
+                quota.setPro(p.publicId(), p.expiresAt());
+            }
+            case EventTypes.SUBSCRIPTION_EXPIRED -> quota.clearPro(e.payloadAs(Events.SubscriptionChanged.class).publicId());
             default -> {
                 // không liên quan tới post-service
             }
