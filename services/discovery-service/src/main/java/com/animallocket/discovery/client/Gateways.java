@@ -28,7 +28,10 @@ public final class Gateways {
     }
 
     public interface BillingGateway {
-        /** Trừ một Boost khỏi ví. false nếu không đủ số dư. */
-        boolean consumeBoost(String publicId);
+        /**
+         * Trừ một Boost khỏi ví. false nếu không đủ số dư. {@code idempotencyKey} được gửi kèm header
+         * Idempotency-Key để billing-service có thể khử trùng lặp khi nó hỗ trợ.
+         */
+        boolean consumeBoost(String publicId, String idempotencyKey);
     }
 }

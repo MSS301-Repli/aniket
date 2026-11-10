@@ -6,7 +6,10 @@ import com.animallocket.discovery.client.Gateways;
 import com.animallocket.discovery.geo.LocationPrivacy;
 import com.animallocket.discovery.geo.LocationPrivacy.LatLon;
 import com.animallocket.discovery.store.DiscoveryStore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -22,15 +25,24 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 @Service
 public class DiscoveryService {
+    private static final Logger log = LoggerFactory.getLogger(DiscoveryService.class);
     private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final Duration ONLINE_WINDOW = Duration.ofSeconds(60);
     private static final Duration LEFT_MEMORY = Duration.ofDays(30);
+    static final Duration BOOST_DURATION = Duration.ofMinutes(30);
+    /** Khoá idempotency của Boost nhớ 24 giờ: đủ cho client retry, không giữ vô hạn. */
+    static final Duration IDEMPOTENCY_TTL = Duration.ofHours(24);
+    private static final String PENDING = "PENDING";
+    private static final String CONSUMED = "CONSUMED";
+    private static final String APPLIED = "APPLIED";
 
     private final DiscoveryStore store;
     private final Gateways.UserGateway users;
+    private final Gateways.BillingGateway billing;
     private final LocationPrivacy privacy;
     private final KeyValueStore kv;
     private final Clock clock;
@@ -42,6 +54,7 @@ public class DiscoveryService {
     private final int cardsPerMinute;
 
     public DiscoveryService(DiscoveryStore store, Gateways.UserGateway users,
+                            Gateways.BillingGateway billing,
                             LocationPrivacy privacy, KeyValueStore kv, Clock clock,
                             @Value("${animal.limits.swipes-per-day.free:30}") int swipesFree,
                             @Value("${animal.limits.swipes-per-day.pro:150}") int swipesPro,
@@ -51,6 +64,7 @@ public class DiscoveryService {
                             @Value("${animal.discovery.cards-per-minute:10}") int cardsPerMinute) {
         this.store = store;
         this.users = users;
+        this.billing = billing;
         this.privacy = privacy;
         this.kv = kv;
         this.clock = clock;
@@ -193,6 +207,62 @@ public class DiscoveryService {
             store.recordRight(me, target, now);
         }
         return new DiscoveryDtos.SwipeResponse(result, swipesLeft(me));
+    }
+
+    /**
+     * Boost: trừ 1 đơn vị trong ví (billing-service), được ưu tiên trong bộ thẻ của người khác 30 phút.
+     * <p>
+     * billing-service chưa có endpoint hoàn trả, nên việc "trừ ví rồi ghi boost" được bảo vệ bằng khoá idempotency
+     * lưu theo từng người và được chiếm nguyên tử: PENDING = đang gọi billing, CONSUMED = đã trừ ví nhưng chưa ghi boost,
+     * APPLIED = đã xong. Client gửi lại cùng khoá
+     * thì không bao giờ bị trừ lần hai. Không gửi khoá thì mỗi yêu cầu được một khoá mới.
+     */
+    public void boost(String me, String idempotencyKey) {
+        requireDiscoverable(me);
+        String key = idempotencyKey == null || idempotencyKey.isBlank() ? UUID.randomUUID().toString() : idempotencyKey;
+        String stateKey = "boost:idem:" + me + ":" + key;
+        if (kv.setIfAbsent(stateKey, PENDING, IDEMPOTENCY_TTL)) {
+            boolean consumed;
+            try {
+                consumed = billing.consumeBoost(me, key);
+            } catch (RuntimeException e) {
+                kv.delete(stateKey); // chưa trừ được ví thì cho client thử lại cùng khoá
+                throw e;
+            }
+            if (!consumed) {
+                kv.delete(stateKey);
+                throw new ApiException(HttpStatus.PAYMENT_REQUIRED, "NO_BOOST", "Bạn không còn Boost nào");
+            }
+            kv.set(stateKey, CONSUMED, IDEMPOTENCY_TTL);
+        } else {
+            String state = kv.get(stateKey).orElse(null);
+            if (APPLIED.equals(state)) {
+                return;
+            }
+            if (PENDING.equals(state)) {
+                throw new ApiException(HttpStatus.CONFLICT, "BOOST_IN_PROGRESS", "Yêu cầu Boost cùng khoá đang được xử lý");
+            }
+            // CONSUMED (hoặc khoá vừa hết hạn): ví đã bị trừ ở lần trước, chỉ áp Boost.
+        }
+        applyBoost(me);
+        kv.set(stateKey, APPLIED, IDEMPOTENCY_TTL);
+    }
+
+    /** Ghi boost vào store, thử lại một lần. Vẫn lỗi thì giữ khoá ở CONSUMED và báo 503 để client gửi lại cùng khoá. */
+    private void applyBoost(String me) {
+        Instant until = clock.instant().plus(BOOST_DURATION);
+        try {
+            store.boost(me, until);
+        } catch (RuntimeException first) {
+            log.warn("Ghi boost lỗi, thử lại một lần: {}", first.toString());
+            try {
+                store.boost(me, until);
+            } catch (RuntimeException second) {
+                log.error("Ghi boost vẫn lỗi sau khi đã trừ ví, chờ client gửi lại cùng khoá: {}", second.toString());
+                throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "BOOST_PENDING",
+                        "Boost đã được trừ nhưng chưa kích hoạt xong, vui lòng thử lại");
+            }
+        }
     }
 
     // ---------------- nội bộ ----------------

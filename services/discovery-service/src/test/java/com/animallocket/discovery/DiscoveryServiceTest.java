@@ -83,16 +83,44 @@ class DiscoveryServiceTest {
         }
     }
 
+    static class FakeBilling implements Gateways.BillingGateway {
+        boolean ok = true;
+        /** Mỗi lần trừ ví thành công ghi lại "publicId:khoá". */
+        final List<String> consumed = new ArrayList<>();
+
+        public boolean consumeBoost(String publicId, String idempotencyKey) {
+            if (ok) {
+                consumed.add(publicId + ":" + idempotencyKey);
+            }
+            return ok;
+        }
+    }
+
+    /** Store giả lập Redis chập chờn: ghi boost thất bại {@code boostFailures} lần đầu. */
+    static class FlakyStore extends InMemoryDiscoveryStore {
+        int boostFailures;
+
+        @Override
+        public void boost(String id, Instant until) {
+            if (boostFailures > 0) {
+                boostFailures--;
+                throw new IllegalStateException("redis down");
+            }
+            super.boost(id, until);
+        }
+    }
+
     final FakeUsers users = new FakeUsers();
     final MutableClock clock = new MutableClock();
     final InMemoryKeyValueStore kv = new InMemoryKeyValueStore();
-    final InMemoryDiscoveryStore store = new InMemoryDiscoveryStore();
+    final FlakyStore store = new FlakyStore();
+    final FakeBilling billing = new FakeBilling();
     final LocationPrivacy privacy = new LocationPrivacy("unit-test-secret-0123456789");
     DiscoveryService svc;
 
     @BeforeEach
     void setUp() {
-        svc = new DiscoveryService(store, users, privacy, kv, clock, 3, 6, Duration.ofMinutes(30), 10_000, 5_000, 1000);
+        svc = new DiscoveryService(store, users, billing, privacy, kv, clock, 3, 6, Duration.ofMinutes(30), 10_000, 5_000, 1000);
     }
 
     /** Đặt người dùng tại vị trí cách "me" khoảng dxMeters về phía đông. */
@@ -225,8 +253,8 @@ class DiscoveryServiceTest {
 
     @Test
     void searchesAreRateLimited() {
-        DiscoveryService limited = new DiscoveryService(store, users, privacy, new InMemoryKeyValueStore(), clock, 3, 6, Duration.ofMinutes(30), 10_000,
-        5_000, 2);
+        DiscoveryService limited = new DiscoveryService(store, users, billing, privacy, new InMemoryKeyValueStore(), clock, 3, 6, Duration.ofMinutes(30),
+        10_000, 5_000, 2);
         users.add("me", "ADULT", true);
         limited.cards("me", 5);
         limited.cards("me", 5);
@@ -336,5 +364,126 @@ class DiscoveryServiceTest {
         users.add("me", "ADULT", true); // bật lại
         svc.updateLocation("me", LAT, LON);
         assertEquals(List.of("b"), cardIds("me"), "người đã quẹt trái vẫn bị ẩn sau khi bật lại");
+    }
+
+    private List<String> boostedIds() {
+        return store.boosted(clock.instant()).stream().sorted().toList();
+    }
+
+    @Test
+    void boostedUsersComeFirstAndBoostNeedsBalance() {
+        users.add("me", "ADULT", true);
+        users.add("near", "ADULT", true);
+        users.add("mid", "ADULT", true);
+        svc.updateLocation("me", LAT, LON);
+        place("near", 300);
+        place("mid", 4000);
+
+        svc.boost("mid", null);
+        var cards = svc.cards("me", 10).cards();
+        assertEquals("mid", cards.get(0).publicId());
+        assertTrue(cards.get(0).boosted());
+
+        clock.now = clock.now.plus(Duration.ofMinutes(31)); // hết 30 phút
+        assertEquals("near", svc.cards("me", 10).cards().get(0).publicId());
+
+        billing.ok = false;
+        ApiException e = assertThrows(ApiException.class, () -> svc.boost("near", null));
+        assertEquals("NO_BOOST", e.code());
+        assertEquals(402, e.status().value());
+        assertEquals(List.of("mid"), billing.consumed.stream().map(s -> s.split(":")[0]).toList(),
+                "hết Boost thì không trừ gì thêm");
+    }
+
+    @Test
+    void repeatedKeyDoesNotConsumeTwice() {
+        users.add("me", "ADULT", true);
+
+        svc.boost("me", "key-1");
+        svc.boost("me", "key-1");
+
+        assertEquals(1, billing.consumed.size());
+        assertEquals(List.of("me:key-1"), billing.consumed, "khoá được chuyển nguyên cho billing");
+        assertEquals(List.of("me"), boostedIds());
+    }
+
+    @Test
+    void requestsWithoutKeyOrWithNewKeyEachConsumeOnce() {
+        users.add("me", "ADULT", true);
+
+        svc.boost("me", null);
+        svc.boost("me", " ");
+        svc.boost("me", "key-2");
+
+        assertEquals(3, billing.consumed.size());
+        assertEquals(3, billing.consumed.stream().distinct().count(), "mỗi yêu cầu có khoá riêng");
+    }
+
+    @Test
+    void storeFailureIsRetriedOnceBeforeGivingUp() {
+        users.add("me", "ADULT", true);
+        store.boostFailures = 1;
+
+        svc.boost("me", "key-1");
+
+        assertEquals(1, billing.consumed.size());
+        assertEquals(List.of("me"), boostedIds());
+    }
+
+    @Test
+    void storeFailureThenRetryWithSameKeyAppliesWithoutSecondConsume() {
+        users.add("me", "ADULT", true);
+        store.boostFailures = 2; // lần ghi đầu và lần thử lại đều lỗi
+
+        ApiException e = assertThrows(ApiException.class, () -> svc.boost("me", "key-1"));
+        assertEquals(503, e.status().value());
+        assertEquals("BOOST_PENDING", e.code());
+        assertEquals(1, billing.consumed.size(), "ví đã bị trừ một lần");
+        assertTrue(boostedIds().isEmpty());
+
+        svc.boost("me", "key-1"); // client gửi lại cùng khoá, store đã khoẻ
+
+        assertEquals(1, billing.consumed.size(), "không được trừ Boost lần hai");
+        assertEquals(List.of("me"), boostedIds());
+
+        svc.boost("me", "key-1"); // đã APPLIED: thành công mà không làm gì thêm
+        assertEquals(1, billing.consumed.size());
+    }
+
+    @Test
+    void concurrentDuplicateWhileKeyIsPendingGetsConflictAndDoesNotConsume() {
+        users.add("me", "ADULT", true);
+        kv.set("boost:idem:me:key-1", "PENDING", Duration.ofHours(24)); // yêu cầu đầu còn đang gọi billing
+
+        ApiException e = assertThrows(ApiException.class, () -> svc.boost("me", "key-1"));
+
+        assertEquals(409, e.status().value());
+        assertEquals("BOOST_IN_PROGRESS", e.code());
+        assertEquals(0, billing.consumed.size());
+        assertTrue(boostedIds().isEmpty());
+    }
+
+    @Test
+    void failedConsumeDoesNotRememberTheKey() {
+        users.add("me", "ADULT", true);
+        billing.ok = false;
+        assertThrows(ApiException.class, () -> svc.boost("me", "key-1"));
+        assertEquals(0, billing.consumed.size());
+
+        billing.ok = true; // nạp thêm Boost rồi thử lại cùng khoá
+        svc.boost("me", "key-1");
+        assertEquals(1, billing.consumed.size());
+        assertEquals(List.of("me"), boostedIds());
+    }
+
+    @Test
+    void keysAreScopedPerUser() {
+        users.add("a", "ADULT", true);
+        users.add("b", "ADULT", true);
+
+        svc.boost("a", "same-key");
+        svc.boost("b", "same-key");
+
+        assertEquals(2, billing.consumed.size());
     }
 }

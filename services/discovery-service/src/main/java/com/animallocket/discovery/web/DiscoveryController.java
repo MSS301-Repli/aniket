@@ -78,4 +78,12 @@ public class DiscoveryController {
                                              @Valid @RequestBody DiscoveryDtos.SwipeRequest req) {
         return discovery.swipe(me, req.targetPublicId(), req.direction());
     }
+
+    /** Header Idempotency-Key (tuỳ chọn): gửi lại cùng khoá thì không bị trừ Boost lần nữa. */
+    @PostMapping("/boost")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void boost(@RequestHeader(Headers.PUBLIC_ID) String me,
+                      @RequestHeader(value = Headers.IDEMPOTENCY_KEY, required = false) String idempotencyKey) {
+        discovery.boost(me, idempotencyKey);
+    }
 }
