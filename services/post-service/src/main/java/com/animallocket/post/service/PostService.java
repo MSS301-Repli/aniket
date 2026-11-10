@@ -159,6 +159,34 @@ public class PostService {
         return views(me, page);
     }
 
+    // ---------------- like / comment ----------------
+
+    @Transactional
+    public void like(String me, String postId) {
+        Post p = visible(me, postId);
+        if (p.getStatus() != Post.Status.PUBLISHED) {
+            throw ApiException.notFound("Bài viết");
+        }
+        // Dựa vào ràng buộc unique (post_id, user_id): chèn bỏ qua khi trùng nên hai request đồng thời
+        // cũng chỉ ghi một dòng, chỉ request thắng mới tăng bộ đếm và phát event.
+        if (likes.insertIfAbsent(postId, me, Instant.now()) == 0) {
+            return;
+        }
+        posts.incLikes(postId);
+        if (!p.getAuthorId().equals(me)) {
+            outbox.publish(Topics.POST, EventTypes.POST_LIKED, postId,
+                    new Events.PostLiked(postId, p.getAuthorId(), me));
+        }
+    }
+
+    @Transactional
+    public void unlike(String me, String postId) {
+        visible(me, postId);
+        if (likes.deleteByPostIdAndUserId(postId, me) > 0) {
+            posts.decLikes(postId);
+        }
+    }
+
     // ---------------- sự kiện từ media-service ----------------
 
     @Transactional

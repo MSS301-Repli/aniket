@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -65,5 +66,17 @@ public class PostController {
                                   @RequestParam(required = false) Instant before,
                                   @RequestParam(defaultValue = "20") int limit) {
         return posts.feed(me, before, limit);
+    }
+
+    @PutMapping("/posts/{id}/like")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void like(@RequestHeader(Headers.PUBLIC_ID) String me, @PathVariable String id) {
+        posts.like(me, id);
+    }
+
+    @DeleteMapping("/posts/{id}/like")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void unlike(@RequestHeader(Headers.PUBLIC_ID) String me, @PathVariable String id) {
+        posts.unlike(me, id);
     }
 }
