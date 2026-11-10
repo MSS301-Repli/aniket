@@ -6,6 +6,7 @@ import com.animallocket.common.event.Events;
 import com.animallocket.common.web.ApiException;
 import com.animallocket.outbox.OutboxService;
 import com.animallocket.post.client.UserDirectory;
+import com.animallocket.post.domain.Comment;
 import com.animallocket.post.domain.MediaState;
 import com.animallocket.post.domain.Post;
 import com.animallocket.post.dto.PostDtos;
@@ -187,6 +188,51 @@ public class PostService {
         }
     }
 
+    @Transactional
+    public PostDtos.CommentView comment(String me, String postId, String text) {
+        String clean = CommentText.normalize(text);
+        if (clean.isEmpty()) {
+            throw ApiException.badRequest("COMMENT_EMPTY", "Bình luận không được để trống");
+        }
+        if (clean.codePointCount(0, clean.length()) > CommentText.MAX_LENGTH) {
+            throw ApiException.badRequest("COMMENT_TOO_LONG", "Bình luận tối đa " + CommentText.MAX_LENGTH + " ký tự");
+        }
+        Post p = visible(me, postId);
+        if (p.getStatus() != Post.Status.PUBLISHED) {
+            throw ApiException.notFound("Bài viết");
+        }
+        Comment c = comments.save(new Comment(postId, me, clean));
+        posts.incComments(postId);
+        if (!p.getAuthorId().equals(me)) {
+            outbox.publish(Topics.POST, EventTypes.POST_COMMENTED, postId,
+                    new Events.PostCommented(postId, p.getAuthorId(), me));
+        }
+        return commentView(c, users.profiles(Set.of(me)));
+    }
+
+    @Transactional(readOnly = true)
+    public PostDtos.CommentPage comments(String me, String postId, long afterId, int limit) {
+        visible(me, postId);
+        int size = Math.max(1, Math.min(limit, MAX_PAGE));
+        List<Comment> page = comments.findByPostIdAndIdGreaterThanOrderByIdAsc(postId, afterId, PageRequest.of(0, size));
+        Map<String, UserDirectory.Profile> profiles = users.profiles(
+                page.stream().map(Comment::getAuthorId).collect(Collectors.toSet()));
+        List<PostDtos.CommentView> items = page.stream().map(c -> commentView(c, profiles)).toList();
+        return new PostDtos.CommentPage(items, page.size() == size ? page.get(page.size() - 1).getId() : null);
+    }
+
+    @Transactional
+    public void deleteComment(String me, String postId, long commentId) {
+        Post p = visible(me, postId);
+        Comment c = comments.findById(commentId).filter(x -> x.getPostId().equals(postId))
+                .orElseThrow(() -> ApiException.notFound("Bình luận"));
+        if (!c.getAuthorId().equals(me) && !p.getAuthorId().equals(me)) {
+            throw ApiException.forbidden("Không có quyền xoá bình luận này");
+        }
+        comments.delete(c);
+        posts.decComments(postId);
+    }
+
     // ---------------- sự kiện từ media-service ----------------
 
     @Transactional
@@ -277,5 +323,12 @@ public class PostService {
                 prof == null ? null : prof.avatar());
         return new PostDtos.PostView(p.getId(), author, p.getCaption(), p.getMediaId(), p.getStatus(),
                 p.getLikeCount(), p.getCommentCount(), liked.contains(p.getId()), p.getCreatedAt(), p.getPublishedAt());
+    }
+
+    private PostDtos.CommentView commentView(Comment c, Map<String, UserDirectory.Profile> profiles) {
+        UserDirectory.Profile prof = profiles.get(c.getAuthorId());
+        return new PostDtos.CommentView(c.getId(), new PostDtos.Author(c.getAuthorId(),
+                prof == null ? null : prof.alias(), prof == null ? null : prof.leadAnimal(),
+                prof == null ? null : prof.avatar()), c.getText(), c.getCreatedAt());
     }
 }
