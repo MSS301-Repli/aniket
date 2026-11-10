@@ -10,6 +10,7 @@ class FakeDirectory implements DeviceDirectory {
     final Map<String, List<String>> friends;
     final List<String> removed = new ArrayList<>();
     boolean failTokens;
+    boolean failFriends;
 
     FakeDirectory(Map<String, List<String>> tokens, Map<String, List<String>> friends) {
         this.tokens = tokens;
@@ -26,6 +27,9 @@ class FakeDirectory implements DeviceDirectory {
 
     @Override
     public List<String> friendIds(String id) {
+        if (failFriends) {
+            throw new IllegalStateException("user-service down");
+        }
         return friends.getOrDefault(id, List.of());
     }
 
