@@ -53,6 +53,7 @@ class DiscoveryServiceTest {
         String swipeResult = "REQUESTED";
         boolean swipeFails;
         final List<String> swipes = new ArrayList<>();
+        boolean profilesDown;
 
         void add(String id, String ageGroup, boolean discoverable) {
             profiles.put(id, new Gateways.Profile(id, "alias-" + id, "fox", "1:fox:0:none", ageGroup, discoverable, true, false));
@@ -63,6 +64,9 @@ class DiscoveryServiceTest {
         }
 
         public Map<String, Gateways.Profile> profiles(List<String> ids) {
+            if (profilesDown) {
+                throw new ApiException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "USER_SERVICE_UNAVAILABLE", "down");
+            }
             Map<String, Gateways.Profile> m = new HashMap<>();
             ids.forEach(i -> {
                 if (profiles.containsKey(i)) m.put(i, profiles.get(i));
@@ -85,10 +89,14 @@ class DiscoveryServiceTest {
 
     static class FakeBilling implements Gateways.BillingGateway {
         boolean ok = true;
+        boolean down;
         /** Mỗi lần trừ ví thành công ghi lại "publicId:khoá". */
         final List<String> consumed = new ArrayList<>();
 
         public boolean consumeBoost(String publicId, String idempotencyKey) {
+            if (down) {
+                throw new ApiException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "BILLING_UNAVAILABLE", "down");
+            }
             if (ok) {
                 consumed.add(publicId + ":" + idempotencyKey);
             }
@@ -260,6 +268,21 @@ class DiscoveryServiceTest {
         limited.cards("me", 5);
         ApiException e = assertThrows(ApiException.class, () -> limited.cards("me", 5));
         assertEquals("TOO_MANY_SEARCHES", e.code());
+    }
+
+    @Test
+    void cardsFailWithServiceUnavailableWhenUserServiceIsDown() {
+        users.add("me", "ADULT", true);
+        users.add("a", "ADULT", true);
+        svc.updateLocation("me", LAT, LON);
+        place("a", 100);
+
+        users.profilesDown = true;
+        ApiException e = assertThrows(ApiException.class, () -> svc.cards("me", 5));
+        assertEquals(503, e.status().value(), "controller chuyển 503 này thành bộ thẻ rỗng có degraded=true");
+
+        users.profilesDown = false;
+        assertEquals(List.of("a"), cardIds("me"), "hết sự cố thì bộ thẻ trở lại bình thường");
     }
 
     @Test
@@ -485,6 +508,20 @@ class DiscoveryServiceTest {
         svc.boost("b", "same-key");
 
         assertEquals(2, billing.consumed.size());
+    }
+
+    @Test
+    void boostReportsBillingOutageAndRetryWithSameKeyConsumesOnce() {
+        users.add("me", "ADULT", true);
+        billing.down = true;
+        ApiException e = assertThrows(ApiException.class, () -> svc.boost("me", "key-1"));
+        assertEquals(503, e.status().value());
+        assertTrue(boostedIds().isEmpty(), "chưa trừ ví thì không được cộng Boost");
+
+        billing.down = false;
+        svc.boost("me", "key-1");
+        assertEquals(1, billing.consumed.size());
+        assertEquals(List.of("me"), boostedIds());
     }
 
     @Test

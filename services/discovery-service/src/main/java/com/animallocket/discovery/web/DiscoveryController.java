@@ -4,9 +4,12 @@ import com.animallocket.common.Headers;
 import com.animallocket.discovery.service.DiscoveryDtos;
 import com.animallocket.discovery.service.DiscoveryService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.HashSet;
 import java.util.List;
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/discovery")
 public class DiscoveryController {
@@ -51,7 +55,7 @@ public class DiscoveryController {
 
     @GetMapping("/presence")
     public DiscoveryDtos.PresenceResponse presence(@RequestHeader(Headers.PUBLIC_ID) String me,
-                                                   @RequestParam List<String> ids) {
+                                                   @RequestParam List<@Size(max = 64) String> ids) {
         return discovery.presence(me, new HashSet<>(ids.stream().limit(200).toList()));
     }
 
@@ -83,7 +87,8 @@ public class DiscoveryController {
     @PostMapping("/boost")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void boost(@RequestHeader(Headers.PUBLIC_ID) String me,
-                      @RequestHeader(value = Headers.IDEMPOTENCY_KEY, required = false) String idempotencyKey) {
+                      @RequestHeader(value = Headers.IDEMPOTENCY_KEY, required = false)
+                      @Pattern(regexp = "[A-Za-z0-9_.:-]{1,64}") String idempotencyKey) {
         discovery.boost(me, idempotencyKey);
     }
 }
