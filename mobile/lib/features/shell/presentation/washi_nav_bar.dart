@@ -36,6 +36,10 @@ class WashiNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.album;
+    final labelSize = MediaQuery.textScalerOf(context).scale(11);
+    final barHeight = labelSize <= 12
+        ? _height
+        : math.max(_height, 42 + labelSize * 3.2);
     final slide = MediaQuery.disableAnimationsOf(context)
         ? Duration.zero
         : const Duration(milliseconds: 200);
@@ -58,7 +62,7 @@ class WashiNavBar extends StatelessWidget {
           color: p.paper,
           borderRadius: _radius,
           child: SizedBox(
-            height: _height,
+            height: barHeight,
             child: LayoutBuilder(
               builder: (context, box) {
                 final slot = box.maxWidth / items.length;
@@ -148,41 +152,41 @@ class _NavButton extends StatelessWidget {
       child: Semantics(
         button: true,
         selected: selected,
+        label: item.label,
         child: InkResponse(
           onTap: onTap,
           radius: 30,
           child: Padding(
             padding: const EdgeInsets.only(bottom: 9, left: 2, right: 2),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.bottomCenter,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AnimatedScale(
-                    scale: selected ? 1.1 : 1,
-                    duration: pop,
-                    curve: Curves.easeOutBack,
-                    child: SizedBox(
-                      height: 30,
-                      width: 48,
-                      child: polaroid
-                          ? const _Polaroid()
-                          : Center(child: AlbumIcon(item.icon, color: color)),
-                    ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedScale(
+                  scale: selected ? 1.1 : 1,
+                  duration: pop,
+                  curve: Curves.easeOutBack,
+                  child: SizedBox(
+                    height: 30,
+                    width: 48,
+                    child: polaroid
+                        ? const _Polaroid()
+                        : Center(child: AlbumIcon(item.icon, color: color)),
                   ),
-                  const SizedBox(height: 3),
-                  Text(
+                ),
+                const SizedBox(height: 3),
+                ExcludeSemantics(
+                  child: Text(
                     item.label,
-                    maxLines: 1,
+                    maxLines: 2,
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: color,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),

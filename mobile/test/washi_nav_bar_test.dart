@@ -154,6 +154,29 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('navigation labels keep text scaling at 2x', (tester) async {
+    tester.view.physicalSize = const Size(360, 720);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      _material(
+        _bar(2),
+        media: const MediaQueryData(
+          size: Size(360, 720),
+          textScaler: TextScaler.linear(2),
+        ),
+      ),
+    );
+
+    expect(tester.getSize(find.byType(WashiNavBar)).height, greaterThan(68));
+    expect(tester.getSize(find.text('Khám phá')).height, greaterThan(20));
+    expect(
+      tester.getSemantics(find.text('Khám phá')),
+      isSemantics(label: 'Khám phá', isButton: true, isSelected: true),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('slides the washi to the new tab by default', (tester) async {
     const media = MediaQueryData(size: Size(400, 800));
     await tester.pumpWidget(_material(_bar(1), media: media));
