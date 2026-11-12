@@ -30,17 +30,13 @@ jobs:
     timeout-minutes: 30
     services:
       redis:
-        image: redis:7-alpine
+        image: redis:7
         ports: ['6379:6379']
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 5s
           --health-timeout 3s
           --health-retries 10
-    env:
-      # Test tích hợp Redis đọc host/cổng từ đây (Redis không mật khẩu, chỉ sống trong job).
-      REDIS_TEST_HOST: 127.0.0.1
-      REDIS_TEST_PORT: '6379'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -51,6 +47,10 @@ jobs:
       - name: Build and test all backend modules
         # -fae: chạy hết mọi module rồi mới báo lỗi, để biết module nào xanh/đỏ thay vì bị SKIPPED.
         run: mvn -B -ntp -fae verify
+        env:
+          # Test tích hợp Redis (libs/common) chỉ chạy khi có REDIS_HOST; Redis không mật khẩu, chỉ sống trong job.
+          REDIS_HOST: localhost
+          REDIS_PORT: '6379'
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
