@@ -34,6 +34,7 @@ Hạ tầng: api-gateway `8080`, config-server `8888`, eureka-server `8761`.
 | Thư viện dùng chung | `libs/common`, `libs/outbox-jpa` | Hằng số, event contract, lỗi RFC 7807, bảo mật, outbox/idempotency |
 | Hạ tầng Spring Cloud | `infra/eureka-server`, `infra/config-server`, `infra/api-gateway`, `infra/config-repo` | Registry, cấu hình tập trung, gateway |
 | Triển khai | `docker-compose.yml`, `deploy/` | Compose, Dockerfile, Keycloak, Traefik, observability |
+| Demo | `deploy/demo/` | Runbook: [deploy-demo.md](deploy-demo.md) (deploy, rollback, backup/restore) |
 | CI | `.github/workflows/` | Build/test backend, mobile, bảo mật |
 | Kiểm thử API | `postman/` | Smoke collection chạy bằng Newman |
 
