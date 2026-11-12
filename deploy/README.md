@@ -13,6 +13,10 @@ với `project_directory: .`, nên mọi đường dẫn tương đối và file
 | `.env.example` | Biến môi trường mẫu (sao chép thành `.env`, **đổi mật khẩu**) |
 | `deploy/compose/core.yml` | Redis, Kafka (KRaft) + `kafka-init` |
 | `deploy/compose/edge.yml` | Keycloak (import realm), Traefik |
+| `deploy/compose/apps.yml` | 3 hạ tầng Spring Cloud + 7 service nghiệp vụ |
+| `deploy/docker/Dockerfile.java` | Build Maven nhiều giai đoạn, dùng chung cho mọi module (`MODULE_PATH`, `APP_PORT`) |
+| `deploy/docker/Dockerfile.runtime` | Chỉ đóng gói JAR đã build sẵn (CI/demo), không chạy Maven |
+| `deploy/secrets/` | Nơi đặt khoá FCM/App Store/Google Play, mount vào `/secrets`. **Không commit** (đã nằm trong `.gitignore`) |
 | `deploy/keycloak/animal-locket-realm.json` | Realm `animal-locket` (import khi Keycloak khởi động lần đầu, không chứa user/mật khẩu) |
 | `deploy/traefik/` | Cấu hình tĩnh (`traefik.yml`) + middleware/header bảo mật + TLS (`dynamic/`) |
 | `deploy/supabase/init.sql` | Tạo role/schema `billing`, `keycloak` trên Supabase (chạy tay một lần) |
@@ -24,13 +28,17 @@ Mọi fragment khai báo cùng mạng `animal-net` (định nghĩa giống hệt
 | Profile | Gồm | Ghi chú |
 |---|---|---|
 | `core` | Redis, Kafka (+`kafka-init`), Keycloak, Traefik | Luôn cần. MySQL/PostgreSQL/MongoDB là dịch vụ ngoài, nối qua `.env` |
+| `app` | eureka-server, config-server, api-gateway, user/media/post/notification/discovery/chat/billing | Cần `core` (thiếu `core` thì compose báo `depends on undefined service`) |
+
+`.env.example` đặt sẵn `COMPOSE_PROFILES=core,app` nên `docker compose up -d --build` là đủ cho dev thông thường.
 
 ## 3. Chạy
 
 ```bash
 cp .env.example .env                       # rồi MỞ .env VÀ ĐỔI MẬT KHẨU
 docker compose config --quiet              # kiểm tra cú pháp + biến bắt buộc
-docker compose --profile core up -d
+docker compose --profile core up -d               # 1) hạ tầng; chờ keycloak healthy (~1–2 phút lần đầu)
+docker compose --profile core --profile app up -d --build   # 2) service (build Maven lần đầu mất vài phút)
 docker compose logs kafka-init             # danh sách topic đã tạo
 ```
 
@@ -55,7 +63,15 @@ docker compose logs kafka-init             # danh sách topic đã tạo
   `ratelimit` (theo IP), `admin-only` (chỉ dải IP riêng tư). TLS: `dynamic/tls.yml` (TLS ≥ 1.2, cipher hiện đại); dev dùng chứng chỉ
   tự ký của Traefik, production bật Let's Encrypt (comment cuối `traefik.yml`).
 
-## 5. Kafka topic
+## 5. Image Java
+
+- `Dockerfile.java`: giai đoạn build `maven:3.9-eclipse-temurin-17` (`mvn -pl <module> -am package`, cache `~/.m2` bằng BuildKit),
+  giai đoạn chạy `eclipse-temurin:17-jre`, user không phải root (uid 10001), `HEALTHCHECK` gọi `/actuator/health` qua `curl`,
+  `exec java` để nhận SIGTERM. `.dockerignore` riêng (`Dockerfile.java.dockerignore`) loại `.env`, `target`, `mobile`, `docs`.
+- `Dockerfile.runtime`: cùng runtime nhưng chỉ `COPY <module>/target/*-SNAPSHOT.jar`; `.dockerignore` chỉ cho phép đúng các JAR.
+- Build tay một module: `docker build -f deploy/docker/Dockerfile.java --build-arg MODULE_PATH=services/user-service --build-arg APP_PORT=8101 .`
+
+## 6. Kafka topic
 
 `KAFKA_AUTO_CREATE_TOPICS_ENABLE=false`: chỉ topic do `kafka-init` tạo mới tồn tại (3 partition, replication 1).
 
@@ -65,7 +81,7 @@ docker compose logs kafka-init             # danh sách topic đã tạo
 
 Thêm topic mới: sửa vòng `for` trong `deploy/compose/core.yml` rồi `docker compose up kafka-init` (idempotent nhờ `--if-not-exists`).
 
-## 6. Xử lý sự cố
+## 7. Xử lý sự cố
 
 | Triệu chứng | Nguyên nhân thường gặp | Cách xử lý |
 |---|---|---|
