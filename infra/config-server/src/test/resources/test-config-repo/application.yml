@@ -1,0 +1,5 @@
+# Bản thu nhỏ của infra/config-repo chỉ dùng cho test (không phụ thuộc thư mục làm việc khi chạy mvn).
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka
