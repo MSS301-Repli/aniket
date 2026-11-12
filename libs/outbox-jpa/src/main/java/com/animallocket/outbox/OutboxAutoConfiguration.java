@@ -6,9 +6,12 @@ import org.springframework.boot.autoconfigure.AutoConfigurationPackage;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration;
+import org.springframework.boot.convert.DurationStyle;
 import org.springframework.context.annotation.Bean;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.EnableScheduling;
+
+
 
 /**
  * Đăng ký entity/repository của outbox vào JPA của service ({@code @AutoConfigurationPackage}) và bật relay.
@@ -26,6 +29,12 @@ public class OutboxAutoConfiguration {
     OutboxService outboxService(OutboxRepository repository,
                                 @Value("${spring.application.name:unknown}") String producer) {
         return new OutboxService(repository, producer);
+    }
+
+    @Bean
+    IdempotencyService idempotencyService(ProcessedEventRepository repository,
+                                          @Value("${animal.outbox.processed-retention:7d}") String retention) {
+        return new IdempotencyService(repository, DurationStyle.detectAndParse(retention));
     }
 
     @Bean
