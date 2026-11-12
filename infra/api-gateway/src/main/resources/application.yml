@@ -1,0 +1,42 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  config:
+    import: "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
+  cloud:
+    config:
+      username: ${CONFIG_USER:config}
+      # Không có mật khẩu mặc định; chạy ngoài compose thì đặt CONFIG_PASSWORD (hoặc spring.cloud.config.enabled=false).
+      password: ${CONFIG_PASSWORD:}
+      fail-fast: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_JWK_URI:http://localhost:8081/realms/animal-locket/protocol/openid-connect/certs}
+
+animal:
+  # Khoá gọi /internal/** của user-service. Bắt buộc, không có mặc định (fail fast).
+  internal-token: ${INTERNAL_TOKEN}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  tracing:
+    sampling:
+      probability: ${TRACE_SAMPLING:1.0}
+  otlp:
+    tracing:
+      endpoint: ${OTLP_TRACING_ENDPOINT:http://localhost:4318/v1/traces}
