@@ -1,0 +1,46 @@
+# Cấu hình dùng chung cho mọi service, Config Server trả kèm file <service>.yml (file riêng ghi đè file này).
+# Chỉ chứa cấu hình KHÔNG nhạy cảm. Bí mật đi bằng biến môi trường và KHÔNG có giá trị mặc định ở đây:
+# thiếu biến thì service fail fast thay vì chạy với khoá dev (ConfigRepoTest chặn việc thêm mặc định cho bí mật).
+eureka:
+  client:
+    service-url:
+      # Eureka bắt Basic auth: URL dạng http://<user>:<pass>@eureka-server:8761/eureka (compose đặt EUREKA_URL).
+      defaultZone: ${EUREKA_URL:http://eureka-server:8761/eureka}
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  tracing:
+    sampling:
+      probability: ${TRACE_SAMPLING:1.0}
+  otlp:
+    tracing:
+      endpoint: ${OTLP_TRACING_ENDPOINT:http://tempo:4318/v1/traces}
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+
+animal:
+  # Khoá gọi nội bộ service-to-service (header X-Internal-Token). Bắt buộc đặt qua biến môi trường.
+  internal-token: ${INTERNAL_TOKEN}
