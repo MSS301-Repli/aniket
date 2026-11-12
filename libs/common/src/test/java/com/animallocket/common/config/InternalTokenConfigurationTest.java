@@ -5,6 +5,7 @@ import com.animallocket.common.web.ApiExceptionHandler;
 import com.animallocket.common.web.InternalTokenFilter;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -16,7 +17,8 @@ class InternalTokenConfigurationTest {
     private static final String STRONG = "0123456789abcdefghijklmnopqrstuvwxyz";
 
     private final WebApplicationContextRunner runner = new WebApplicationContextRunner()
-            .withConfiguration(AutoConfigurations.of(CommonAutoConfiguration.class));
+            .withConfiguration(AutoConfigurations.of(SecurityAutoConfiguration.class, CommonAutoConfiguration.class))
+            .withPropertyValues("animal.security.enabled=false");
 
     private static int status(InternalTokenFilter filter, String token) throws Exception {
         MockHttpServletRequest req = new MockHttpServletRequest("GET", "/internal/x");
