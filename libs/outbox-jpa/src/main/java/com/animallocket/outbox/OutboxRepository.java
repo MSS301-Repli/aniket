@@ -20,6 +20,11 @@ public interface OutboxRepository extends JpaRepository<OutboxEvent, String> {
 
     long countByFailedAtIsNotNull();
 
+    long countByPublishedAtIsNullAndFailedAtIsNull();
+
+    @Query("select min(e.createdAt) from OutboxEvent e where e.publishedAt is null and e.failedAt is null")
+    Instant oldestPendingCreatedAt();
+
     @Modifying
     @Query("delete from OutboxEvent e where e.publishedAt is not null and e.publishedAt < :before")
     int deletePublishedBefore(Instant before);
