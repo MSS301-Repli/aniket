@@ -26,7 +26,20 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     </properties>
 
-    <!-- Danh sách module được thêm ở PLT-07 (khi pom của từng module đã tồn tại). -->
+    <modules>
+        <module>libs/common</module>
+        <module>libs/outbox-jpa</module>
+        <module>infra/config-server</module>
+        <module>infra/eureka-server</module>
+        <module>infra/api-gateway</module>
+        <module>services/user-service</module>
+        <module>services/media-service</module>
+        <module>services/post-service</module>
+        <module>services/notification-service</module>
+        <module>services/discovery-service</module>
+        <module>services/chat-service</module>
+        <module>services/billing-service</module>
+    </modules>
 
     <dependencyManagement>
         <dependencies>
