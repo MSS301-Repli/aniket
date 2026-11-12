@@ -17,3 +17,5 @@ include:
     project_directory: .
   - path: deploy/compose/edge.yml
     project_directory: .
+  - path: deploy/compose/apps.yml
+    project_directory: .

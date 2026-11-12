@@ -1,0 +1,256 @@
+# APP: hạ tầng Spring Cloud (eureka, config-server, api-gateway) + 7 service nghiệp vụ. Được include từ docker-compose.yml.
+# Mọi image build bằng deploy/docker/Dockerfile.java (MODULE_PATH, APP_PORT); healthcheck nằm trong Dockerfile.
+# depends_on trỏ sang service của core.yml/edge.yml (include gộp tất cả vào một model nên tham chiếu chéo được).
+
+x-java-env: &java-env
+  CONFIG_SERVER_URL: http://config-server:8888
+  CONFIG_USER: ${CONFIG_USER:-config}
+  CONFIG_PASSWORD: ${CONFIG_PASSWORD:?Thiếu CONFIG_PASSWORD, hãy sao chép .env.example thành .env}
+  EUREKA_URL: http://eureka-server:8761/eureka
+  INTERNAL_TOKEN: ${INTERNAL_TOKEN:?Thiếu INTERNAL_TOKEN}
+  KAFKA_BOOTSTRAP: kafka:9092
+  # Gateway/service chỉ cần public key của Keycloak để kiểm tra JWT; gọi nội bộ nên không phụ thuộc hostname công khai.
+  KEYCLOAK_JWK_URI: http://keycloak:8080/realms/animal-locket/protocol/openid-connect/certs
+  OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
+  TRACE_SAMPLING: ${TRACE_SAMPLING:-1.0}
+  JPA_DDL_AUTO: ${JPA_DDL_AUTO:-none}
+  # Bật histogram để Grafana/Prometheus tính được p95 độ trễ (nếu không chỉ có count/sum/max).
+  MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILESHISTOGRAM_HTTP_SERVER_REQUESTS: "true"
+
+x-java-service: &java-service
+  restart: unless-stopped
+  networks: [animal-net]
+  profiles: [app]
+
+x-java-deps: &java-deps
+  config-server:
+    condition: service_healthy
+
+x-redis-env: &redis-env
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:?Thiếu REDIS_PASSWORD}
+
+services:
+  eureka-server:
+    <<: *java-service
+    image: animal-locket/eureka-server:dev
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.java
+      args: { MODULE_PATH: infra/eureka-server, APP_PORT: "8761" }
+    environment:
+      EUREKA_HOST: eureka-server
+
+  config-server:
+    <<: *java-service
+    image: animal-locket/config-server:dev
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.java
+      args: { MODULE_PATH: infra/config-server, APP_PORT: "8888" }
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    environment:
+      CONFIG_USER: ${CONFIG_USER:-config}
+      CONFIG_PASSWORD: ${CONFIG_PASSWORD}
+      CONFIG_REPO_PATH: file:/config-repo
+      EUREKA_URL: http://eureka-server:8761/eureka
+    volumes:
+      - ./infra/config-repo:/config-repo:ro
+
+  api-gateway:
+    <<: *java-service
+    image: animal-locket/api-gateway:dev
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.java
+      args: { MODULE_PATH: infra/api-gateway, APP_PORT: "8080" }
+    depends_on:
+      <<: *java-deps
+      redis:
+        condition: service_healthy
+    environment:
+      <<: [*java-env, *redis-env]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=animal-net"
+      # Chỉ chuyển các đường dẫn công khai của API. KHÔNG chuyển /actuator/**: gateway cho phép /actuator/prometheus
+      # không cần đăng nhập để Prometheus scrape trong mạng nội bộ, nên không được để lộ ra Internet.
+      - "traefik.http.routers.api.rule=Host(`api.${PUBLIC_DOMAIN:-localhost}`) && (PathPrefix(`/api/`) || PathPrefix(`/ws/`) || PathPrefix(`/webhooks/`))"
+      - "traefik.http.routers.api.entrypoints=web,websecure"
+      - "traefik.http.routers.api.middlewares=security-headers@file,ratelimit@file"
+      - "traefik.http.routers.api.service=api"
+      # Trang thanh toán web (HTML, billing-service): router riêng vì cần CSP khác với API JSON ở trên.
+      - "traefik.http.routers.pay.rule=Host(`api.${PUBLIC_DOMAIN:-localhost}`) && PathPrefix(`/pay/`)"
+      - "traefik.http.routers.pay.entrypoints=web,websecure"
+      - "traefik.http.routers.pay.middlewares=security-headers-pay@file,ratelimit@file"
+      - "traefik.http.routers.pay.service=api"
+      # WebSocket (/ws/chat) đi qua cùng router; Traefik tự chuyển tiếp header Upgrade.
+      - "traefik.http.services.api.loadbalancer.server.port=8080"
+
+  user-service:
+    <<: *java-service
+    image: animal-locket/user-service:dev
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.java
+      args: { MODULE_PATH: services/user-service, APP_PORT: "8101" }
+    depends_on:
+      <<: *java-deps
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      <<: *java-env
+      DB_URL: jdbc:mysql://${MYSQL_HOST:?Thiếu MYSQL_HOST}:${MYSQL_PORT:?Thiếu MYSQL_PORT}/user_db?sslMode=REQUIRED&characterEncoding=utf8
+      DB_USER: ${MYSQL_USER:?Thiếu MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD:?Thiếu MYSQL_PASSWORD}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "5"
+      # Xoá user trong Keycloak khi người dùng xoá tài khoản (service account "user-service-admin").
+      KEYCLOAK_ADMIN_URL: http://keycloak:8080
+      KEYCLOAK_ADMIN_CLIENT_ID: user-service-admin
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
+      # Chỉ dev: tài khoản "bạn chung" để test chat (xem .env.example). Trống = tắt.
+      DEV_BUDDY_PUBLIC_ID: ${DEV_BUDDY_PUBLIC_ID:-}
+
+  media-service:
+    <<: *java-service
+    image: animal-locket/media-service:dev
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.java
+      args: { MODULE_PATH: services/media-service, APP_PORT: "8103" }
+    depends_on:
+      <<: *java-deps
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      <<: *java-env
+      DB_URL: jdbc:mysql://${MYSQL_HOST:?Thiếu MYSQL_HOST}:${MYSQL_PORT:?Thiếu MYSQL_PORT}/media_db?sslMode=REQUIRED&characterEncoding=utf8
+      DB_USER: ${MYSQL_USER:?Thiếu MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD:?Thiếu MYSQL_PASSWORD}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "5"
+      # Cloudflare R2 (một bucket riêng tư). Token chỉ có quyền Object Read & Write trên bucket này.
+      R2_ENDPOINT: ${R2_ENDPOINT:?Thiếu R2_ENDPOINT}
+      R2_ACCESS_KEY: ${R2_ACCESS_KEY:?Thiếu R2_ACCESS_KEY}
+      R2_SECRET_KEY: ${R2_SECRET_KEY:?Thiếu R2_SECRET_KEY}
+      R2_BUCKET: ${R2_BUCKET:?Thiếu R2_BUCKET}
+
+  post-service:
+    <<: *java-service
+    image: animal-locket/post-service:dev
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.java
+      args: { MODULE_PATH: services/post-service, APP_PORT: "8102" }
+    depends_on:
+      <<: *java-deps
+      redis:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      <<: [*java-env, *redis-env]
+      DB_URL: jdbc:mysql://${MYSQL_HOST:?Thiếu MYSQL_HOST}:${MYSQL_PORT:?Thiếu MYSQL_PORT}/post_db?sslMode=REQUIRED&characterEncoding=utf8
+      DB_USER: ${MYSQL_USER:?Thiếu MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD:?Thiếu MYSQL_PASSWORD}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "5"
+
+  notification-service:
+    <<: *java-service
+    image: animal-locket/notification-service:dev
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.java
+      args: { MODULE_PATH: services/notification-service, APP_PORT: "8107" }
+    depends_on:
+      <<: *java-deps
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      <<: *java-env
+      FCM_CREDENTIALS_FILE: ${FCM_CREDENTIALS_FILE:-}
+    volumes:
+      - ./deploy/secrets:/secrets:ro
+
+  discovery-service:
+    <<: *java-service
+    image: animal-locket/discovery-service:dev
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.java
+      args: { MODULE_PATH: services/discovery-service, APP_PORT: "8104" }
+    depends_on:
+      <<: *java-deps
+      redis:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      <<: [*java-env, *redis-env]
+      DISCOVERY_SECRET: ${DISCOVERY_SECRET:?Thiếu DISCOVERY_SECRET}
+
+  chat-service:
+    <<: *java-service
+    image: animal-locket/chat-service:dev
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.java
+      args: { MODULE_PATH: services/chat-service, APP_PORT: "8105" }
+    depends_on:
+      <<: *java-deps
+      redis:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      <<: [*java-env, *redis-env]
+      # MongoDB Atlas. User chỉ có quyền readWrite trên chat_db. Dạng mongodb+srv://user:pass@cluster.xxxx.mongodb.net/chat_db
+      MONGO_URI: ${MONGO_URI:?Thiếu MONGO_URI}
+      # Glyph chat. false = rollback: tắt tạo/gỡ/gửi ký hiệu, vẫn đọc được lịch sử và từ điển.
+      GLYPH_WRITE_ENABLED: ${GLYPH_WRITE_ENABLED:-true}
+      ANIMAL_CHAT_GLYPH_MAX_ACTIVE: ${GLYPH_MAX_ACTIVE:-100}
+      ANIMAL_CHAT_GLYPH_MAX_CREATES_PER_DAY: ${GLYPH_MAX_CREATES_PER_DAY:-20}
+      # Phải khớp bảng màu của mobile (glyph_composer_panel.dart).
+      ANIMAL_CHAT_GLYPH_PALETTE: "${GLYPH_PALETTE:-#818CF8,#34D399,#FBBF24,#F472B6,#38BDF8,#FB923C,#C084FC}"
+
+  billing-service:
+    <<: *java-service
+    image: animal-locket/billing-service:dev
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.java
+      args: { MODULE_PATH: services/billing-service, APP_PORT: "8106" }
+    depends_on:
+      <<: *java-deps
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      <<: *java-env
+      # Supabase (Session pooler). Role billing_app chỉ có quyền trên schema billing.
+      DB_URL: ${BILLING_DB_URL:?Thiếu BILLING_DB_URL}
+      DB_USER: ${BILLING_DB_USER:?Thiếu BILLING_DB_USER}
+      DB_PASSWORD: ${BILLING_DB_PASSWORD:?Thiếu BILLING_DB_PASSWORD}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "5"
+      BILLING_DEV_STORE: ${BILLING_DEV_STORE:-false}
+      # PayPal (thanh toán web). Để trống = tắt. Mặc định sandbox; chỉ đặt PAYPAL_MODE=live trên server thật.
+      PAYPAL_MODE: ${PAYPAL_MODE:-sandbox}
+      PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID:-}
+      PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET:-}
+      PAYPAL_WEBHOOK_ID: ${PAYPAL_WEBHOOK_ID:-}
+      # payOS (VietQR). Để trống = tắt. KHÔNG có sandbox: giao dịch là tiền thật.
+      PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID:-}
+      PAYOS_API_KEY: ${PAYOS_API_KEY:-}
+      PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY:-}
+      PAYOS_ORDER_CODE_BASE: ${PAYOS_ORDER_CODE_BASE:-100000000000}
+      # Phải là host mà Traefik định tuyến (api.<PUBLIC_DOMAIN>), vì router /pay/ khớp theo Host.
+      PAYPAL_RETURN_BASE_URL: ${PAYPAL_RETURN_BASE_URL:-http://api.${PUBLIC_DOMAIN:-localhost}:${HTTP_PORT:-80}}
+      PAYPAL_APP_RETURN_URL: ${PAYPAL_APP_RETURN_URL:-animallocket://checkout}
+    volumes:
+      # Khoá App Store / Google Play (file .p8, service account JSON) đặt ở đây, KHÔNG commit.
+      - ./deploy/secrets:/secrets:ro
+
+networks:
+  animal-net:
+    name: animal-net
