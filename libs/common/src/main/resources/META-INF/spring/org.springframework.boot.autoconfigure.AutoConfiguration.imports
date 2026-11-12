@@ -1,3 +1,4 @@
 com.animallocket.common.config.CommonAutoConfiguration
 com.animallocket.common.kv.KeyValueAutoConfiguration
 com.animallocket.common.config.KafkaErrorHandlingAutoConfiguration
+com.animallocket.common.config.ResilienceAutoConfiguration
