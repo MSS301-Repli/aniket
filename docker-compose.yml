@@ -1,0 +1,17 @@
+# =====================================================================================================
+#  ANIMAL LOCKET — Docker Compose (file gốc, chỉ ghép các fragment trong deploy/compose/ bằng `include`)
+#
+#  Profile:   core  hạ tầng (Kafka, Redis, ...) + job khởi tạo
+#             app   config-server, eureka, gateway, 7 service nghiệp vụ
+#             obs   Prometheus, Loki, Tempo, Grafana, Alloy
+#
+#  Dùng:  cp .env.example .env   (rồi ĐỔI MẬT KHẨU)   →   docker compose up -d
+#         (.env.example đặt sẵn COMPOSE_PROFILES=core,app). Xem deploy/README.md.
+#
+#  project_directory: . => đường dẫn tương đối và file .env trong mọi fragment đều tính từ GỐC repo.
+# =====================================================================================================
+name: animal-locket
+
+include:
+  - path: deploy/compose/core.yml
+    project_directory: .
