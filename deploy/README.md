@@ -14,6 +14,8 @@ với `project_directory: .`, nên mọi đường dẫn tương đối và file
 | `deploy/compose/core.yml` | Redis, Kafka (KRaft) + `kafka-init` |
 | `deploy/compose/edge.yml` | Keycloak (import realm), Traefik |
 | `deploy/compose/apps.yml` | 3 hạ tầng Spring Cloud + 7 service nghiệp vụ |
+| `deploy/compose/obs.yml` | Prometheus, kafka-exporter, Loki, Tempo, Alloy, Grafana |
+| `deploy/observability/` | Cấu hình Prometheus (+ `alerts.yml`), Loki, Tempo, Alloy, Grafana (datasource + dashboard) |
 | `deploy/docker/Dockerfile.java` | Build Maven nhiều giai đoạn, dùng chung cho mọi module (`MODULE_PATH`, `APP_PORT`) |
 | `deploy/docker/Dockerfile.runtime` | Chỉ đóng gói JAR đã build sẵn (CI/demo), không chạy Maven |
 | `deploy/secrets/` | Nơi đặt khoá FCM/App Store/Google Play, mount vào `/secrets`. **Không commit** (đã nằm trong `.gitignore`) |
@@ -29,6 +31,7 @@ Mọi fragment khai báo cùng mạng `animal-net` (định nghĩa giống hệt
 |---|---|---|
 | `core` | Redis, Kafka (+`kafka-init`), Keycloak, Traefik | Luôn cần. MySQL/PostgreSQL/MongoDB là dịch vụ ngoài, nối qua `.env` |
 | `app` | eureka-server, config-server, api-gateway, user/media/post/notification/discovery/chat/billing | Cần `core` (thiếu `core` thì compose báo `depends on undefined service`) |
+| `obs` | Prometheus, Loki, Tempo, Alloy, Grafana, kafka-exporter | Tuỳ chọn, cần `core` |
 
 `.env.example` đặt sẵn `COMPOSE_PROFILES=core,app` nên `docker compose up -d --build` là đủ cho dev thông thường.
 
@@ -39,6 +42,7 @@ cp .env.example .env                       # rồi MỞ .env VÀ ĐỔI MẬT KH
 docker compose config --quiet              # kiểm tra cú pháp + biến bắt buộc
 docker compose --profile core up -d               # 1) hạ tầng; chờ keycloak healthy (~1–2 phút lần đầu)
 docker compose --profile core --profile app up -d --build   # 2) service (build Maven lần đầu mất vài phút)
+docker compose --profile core --profile obs up -d           # 3) (tuỳ chọn) giám sát
 docker compose logs kafka-init             # danh sách topic đã tạo
 ```
 
@@ -48,6 +52,7 @@ docker compose logs kafka-init             # danh sách topic đã tạo
 |---|---|
 | `http://api.localhost:8080` | API gateway (profile `app`) |
 | `http://auth.localhost:8080` | Keycloak. `/admin`, `/realms/master`, `/metrics`, `/health` **chỉ** mạng nội bộ (`admin-only`) |
+| `http://grafana.localhost:8080` | Grafana (profile `obs`, tài khoản `GRAFANA_ADMIN_*`) |
 | `http://127.0.0.1:8088` | Dashboard Traefik, chỉ loopback |
 
 `*.localhost` tự trỏ về 127.0.0.1 trên trình duyệt; nếu `curl` không phân giải được, thêm vào hosts: `127.0.0.1 api.localhost auth.localhost grafana.localhost`.
@@ -71,7 +76,20 @@ docker compose logs kafka-init             # danh sách topic đã tạo
 - `Dockerfile.runtime`: cùng runtime nhưng chỉ `COPY <module>/target/*-SNAPSHOT.jar`; `.dockerignore` chỉ cho phép đúng các JAR.
 - Build tay một module: `docker build -f deploy/docker/Dockerfile.java --build-arg MODULE_PATH=services/user-service --build-arg APP_PORT=8101 .`
 
-## 6. Kafka topic
+## 6. Quan sát (profile `obs`)
+
+- **Prometheus** scrape `/actuator/prometheus` của cả 10 app Java, cùng Traefik, Keycloak (`:9000/metrics`), kafka-exporter, Loki, Tempo.
+  Giữ 15 ngày. Chưa gắn Alertmanager: cảnh báo chỉ hiện ở UI Prometheus/Grafana.
+- **Cảnh báo** (`prometheus/alerts.yml`): `ServiceDown`, `High5xxRate`, `HighLatencyP95`, `CircuitBreakerOpen`, `KafkaConsumerLagHigh`,
+  `JvmHeapNearLimit`, `OutboxStuck` (`outbox_oldest_pending_age_seconds > 120` trong 2 phút) và `OutboxBacklogHigh` (`outbox_pending > 1000`),
+  hai metric outbox do `libs/outbox-jpa` xuất.
+- **Loki** (log 7 ngày) nhận log mọi container qua **Alloy** (đọc Docker socket, nhãn `service` = tên service compose).
+- **Tempo** (trace 3 ngày) nhận OTLP ở `tempo:4318` từ service và Traefik.
+- **Grafana**: datasource Prometheus/Loki/Tempo (trace ↔ log theo `traceId`), dashboard *Tổng quan service (RED)* trong thư mục *Animal Locket*
+  (RED, JVM, HikariCP, lag Kafka, circuit breaker, outbox).
+- Không bật `obs` thì service vẫn cố gửi trace tới `tempo:4318` và log cảnh báo kết nối; đặt `TRACE_SAMPLING=0` để yên log.
+
+## 7. Kafka topic
 
 `KAFKA_AUTO_CREATE_TOPICS_ENABLE=false`: chỉ topic do `kafka-init` tạo mới tồn tại (3 partition, replication 1).
 
@@ -81,7 +99,7 @@ docker compose logs kafka-init             # danh sách topic đã tạo
 
 Thêm topic mới: sửa vòng `for` trong `deploy/compose/core.yml` rồi `docker compose up kafka-init` (idempotent nhờ `--if-not-exists`).
 
-## 7. Xử lý sự cố
+## 8. Xử lý sự cố
 
 | Triệu chứng | Nguyên nhân thường gặp | Cách xử lý |
 |---|---|---|

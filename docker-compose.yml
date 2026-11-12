@@ -19,3 +19,5 @@ include:
     project_directory: .
   - path: deploy/compose/apps.yml
     project_directory: .
+  - path: deploy/compose/obs.yml
+    project_directory: .
