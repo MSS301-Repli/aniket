@@ -1,6 +1,10 @@
 package com.animallocket.outbox;
 
 import com.animallocket.common.event.EventJson;
+import org.apache.kafka.common.KafkaException;
+import org.apache.kafka.common.errors.NotEnoughReplicasException;
+import org.apache.kafka.common.errors.RecordTooLargeException;
+import org.apache.kafka.common.errors.TimeoutException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +27,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 @SpringBootTest(classes = OutboxTestApp.class)
@@ -48,7 +54,7 @@ class OutboxFlowTest {
     void setUp() {
         repository.deleteAll();
         sentKeys.clear();
-        relay = new OutboxRelay(repository, kafka);
+        relay = new OutboxRelay(repository, kafka, 3);
         succeedSends();
     }
 
@@ -107,18 +113,70 @@ class OutboxFlowTest {
     }
 
     @Test
-    void relayStopsAtFirstFailureToKeepOrder() {
+    void transientFailureStopsTheBatchAndIsNeverCountedAsPoison() {
         publish("a");
         publish("b");
-        doAnswer(inv -> CompletableFuture.failedFuture(new IllegalStateException("broker down")))
+        doAnswer(inv -> CompletableFuture.failedFuture(new TimeoutException("broker down")))
                 .when(kafka).send(anyString(), anyString(), anyString());
-        tx.executeWithoutResult(s -> relay.relay());
+        for (int i = 0; i < 10; i++) {
+            tx.executeWithoutResult(s -> relay.relay());
+        }
         verify(kafka, never()).send(anyString(), eq("b"), anyString());
-        assertThat(rows()).allSatisfy(r -> assertThat(r.getPublishedAt()).isNull());
+        assertThat(rows()).allSatisfy(r -> {
+            assertThat(r.getPublishedAt()).isNull();
+            assertThat(r.getFailedAt()).isNull();
+            assertThat(r.getAttempts()).isZero();
+        });
 
         succeedSends();
         tx.executeWithoutResult(s -> relay.relay());
         assertThat(sentKeys).containsExactly("a", "b");
+    }
+
+    @Test
+    void poisonEventIsMarkedFailedAfterMaxAttemptsAndNoLongerBlocksTheQueue() {
+        publish("poison");
+        publish("ok");
+        doAnswer(inv -> {
+            if ("poison".equals(inv.getArgument(1))) {
+                return CompletableFuture.failedFuture(new RecordTooLargeException("too big"));
+            }
+            sentKeys.add(inv.getArgument(1));
+            return CompletableFuture.completedFuture((SendResult<String, String>) null);
+        }).when(kafka).send(anyString(), anyString(), anyString());
+
+        tx.executeWithoutResult(s -> relay.relay());
+        tx.executeWithoutResult(s -> relay.relay());
+        assertThat(sentKeys).as("chưa đạt ngưỡng: vẫn giữ thứ tự").isEmpty();
+        assertThat(rows().get(0).getAttempts()).isEqualTo(2);
+
+        tx.executeWithoutResult(s -> relay.relay());
+        assertThat(sentKeys).containsExactly("ok");
+        OutboxEvent poison = rows().get(0);
+        assertThat(poison.getFailedAt()).isNotNull();
+        assertThat(poison.getAttempts()).isEqualTo(3);
+        assertThat(poison.getLastError()).contains("RecordTooLargeException");
+        assertThat(repository.countByFailedAtIsNotNull()).isEqualTo(1);
+
+        tx.executeWithoutResult(s -> relay.relay());
+        verify(kafka, times(3)).send(anyString(), eq("poison"), anyString());
+    }
+
+    @Test
+    void synchronousSendExceptionIsHandledLikeAFailedFuture() {
+        publish("a");
+        doThrow(new KafkaException("metadata", new TimeoutException("no broker")))
+                .when(kafka).send(anyString(), anyString(), anyString());
+        tx.executeWithoutResult(s -> relay.relay());
+        assertThat(rows().get(0).getAttempts()).isZero();
+    }
+
+    @Test
+    void transientClassification() {
+        assertThat(OutboxRelay.isTransient(new TimeoutException("x"))).isTrue();
+        assertThat(OutboxRelay.isTransient(new KafkaException("wrap", new NotEnoughReplicasException("x")))).isTrue();
+        assertThat(OutboxRelay.isTransient(new RecordTooLargeException("x"))).isFalse();
+        assertThat(OutboxRelay.isTransient(new IllegalStateException("x"))).isFalse();
     }
 
     @Test
