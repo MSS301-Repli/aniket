@@ -4,11 +4,13 @@ import com.animallocket.common.kv.InMemoryKeyValueStore;
 import com.animallocket.common.web.ApiException;
 import com.animallocket.discovery.client.Gateways;
 import com.animallocket.discovery.geo.LocationPrivacy;
+import com.animallocket.discovery.service.DiscoveryDtos;
 import com.animallocket.discovery.service.DiscoveryService;
 import com.animallocket.discovery.store.InMemoryDiscoveryStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.RecordComponent;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -56,6 +58,14 @@ class DiscoveryServiceTest {
             return profiles.get(id);
         }
 
+        public Map<String, Gateways.Profile> profiles(List<String> ids) {
+            Map<String, Gateways.Profile> m = new HashMap<>();
+            ids.forEach(i -> {
+                if (profiles.containsKey(i)) m.put(i, profiles.get(i));
+            });
+            return m;
+        }
+
         public Gateways.Exclusions exclusions(String id) {
             return new Gateways.Exclusions(friends.getOrDefault(id, List.of()), blocked.getOrDefault(id, List.of()));
         }
@@ -70,7 +80,7 @@ class DiscoveryServiceTest {
 
     @BeforeEach
     void setUp() {
-        svc = new DiscoveryService(store, users, privacy, kv, clock, Duration.ofMinutes(30));
+        svc = new DiscoveryService(store, users, privacy, kv, clock, Duration.ofMinutes(30), 10_000, 5_000, 1000);
     }
 
     /** Đặt người dùng tại vị trí cách "me" khoảng dxMeters về phía đông. */
@@ -79,11 +89,23 @@ class DiscoveryServiceTest {
         svc.updateLocation(id, LAT, LON + dLon);
     }
 
+    /** Có vị trí nhưng KHÔNG online (không heartbeat): chỉ xuất hiện nếu nằm trong bán kính. */
+    private void placeOffline(String id, String ageGroup, double dxMeters) {
+        double dLon = dxMeters / (111_320 * Math.cos(Math.toRadians(LAT)));
+        store.putLocation(ageGroup, id, privacy.storedPosition(id, new LocationPrivacy.LatLon(LAT, LON + dLon)),
+                clock.instant().plusSeconds(1800));
+    }
+
+    private List<String> cardIds(String me) {
+        return svc.cards(me, 30).cards().stream().map(DiscoveryDtos.Card::publicId).toList();
+    }
+
     @Test
     void locationRequiresDiscoveryEnabled() {
         users.add("shy", "ADULT", false);
         ApiException e = assertThrows(ApiException.class, () -> svc.updateLocation("shy", LAT, LON));
         assertEquals(403, e.status().value());
+        assertThrows(ApiException.class, () -> svc.cards("shy", 5));
     }
 
     @Test
@@ -97,6 +119,107 @@ class DiscoveryServiceTest {
 
         svc.clearLocation("me");
         assertTrue(store.location("ADULT", "me").isEmpty(), "vị trí phải bị xoá ngay");
+    }
+
+    @Test
+    void deckContainsOnlyEligibleNearbyOrOnlinePeople() {
+        for (String id : List.of("me", "near", "mid", "far", "friend", "blocked", "hidden", "i_online")) {
+            users.add(id, "ADULT", !id.equals("hidden"));
+        }
+        users.add("minor", "MINOR", true);
+        users.friends.put("me", List.of("friend"));
+        users.blocked.put("me", List.of("blocked"));
+
+        svc.updateLocation("me", LAT, LON);            // hidden không gọi được updateLocation (không bật)
+        place("near", 700);
+        place("mid", 5000);
+        placeOffline("far", "ADULT", 50_000);
+        place("friend", 300);
+        place("blocked", 300);
+        place("minor", 300);
+        store.putLocation("ADULT", "hidden", new LocationPrivacy.LatLon(LAT, LON + 0.003), clock.instant().plusSeconds(600));
+        svc.heartbeat("i_online");                     // chỉ online, không có vị trí
+
+        List<String> ids = cardIds("me");
+
+        assertTrue(ids.contains("near") && ids.contains("mid"), ids.toString());
+        assertTrue(ids.contains("i_online"), "người đang online phải có trong bộ thẻ");
+        assertFalse(ids.contains("far"), "ngoài bán kính");
+        assertFalse(ids.contains("friend"), "đã là bạn");
+        assertFalse(ids.contains("blocked"), "đã chặn");
+        assertFalse(ids.contains("hidden"), "đã tắt chế độ khám phá");
+        assertFalse(ids.contains("minor"), "khác nhóm tuổi");
+        assertFalse(ids.contains("me"), "không tự gợi ý chính mình");
+        assertTrue(ids.indexOf("near") < ids.indexOf("mid"), "gần hơn xếp trước");
+    }
+
+    @Test
+    void onlineStrangersFarAwayAppearWithoutAnyDistanceInformation() {
+        users.add("me", "ADULT", true);
+        users.add("faraway", "ADULT", true);
+        svc.updateLocation("me", LAT, LON);
+        svc.updateLocation("faraway", LAT + 3.0, LON);   // ~330 km, đang online
+        var card = svc.cards("me", 5).cards().get(0);
+        assertEquals("faraway", card.publicId());
+        assertEquals(null, card.distanceBand(), "ngoài bán kính thì không tiết lộ khoảng cách");
+        assertTrue(card.online());
+    }
+
+    @Test
+    void cardsNeverExposeCoordinatesOrDistancesInMeters() {
+        for (RecordComponent c : DiscoveryDtos.Card.class.getRecordComponents()) {
+            String n = c.getName().toLowerCase();
+            assertFalse(n.contains("lat") || n.contains("lon") || n.contains("meter") || n.contains("coord"), n);
+        }
+        users.add("me", "ADULT", true);
+        users.add("near", "ADULT", true);
+        svc.updateLocation("me", LAT, LON);
+        place("near", 400);
+        var card = svc.cards("me", 5).cards().get(0);
+        assertEquals("UNDER_1KM", card.distanceBand());
+    }
+
+    @Test
+    void minorsOnlySeeMinorsWithCoarseBands() {
+        users.add("kid1", "MINOR", true);
+        users.add("kid2", "MINOR", true);
+        users.add("adult", "ADULT", true);
+        svc.updateLocation("kid1", LAT, LON);
+        place("kid2", 200);
+        place("adult", 200);
+
+        var cards = svc.cards("kid1", 10).cards();
+        assertEquals(List.of("kid2"), cards.stream().map(DiscoveryDtos.Card::publicId).toList());
+        assertEquals("UNDER_3KM", cards.get(0).distanceBand());
+        // chiều ngược lại cũng vậy
+        users.add("adult2", "ADULT", true);
+        svc.updateLocation("adult2", LAT, LON);
+        assertFalse(cardIds("adult2").contains("kid2"));
+    }
+
+    @Test
+    void minorRadiusIsSmallerThanAdultRadius() {
+        users.add("kid", "MINOR", true);
+        users.add("kidFar", "MINOR", true);
+        users.add("adult", "ADULT", true);
+        users.add("adultFar", "ADULT", true);
+        svc.updateLocation("kid", LAT, LON);
+        placeOffline("kidFar", "MINOR", 7_000);
+        svc.updateLocation("adult", LAT, LON);
+        placeOffline("adultFar", "ADULT", 7_000);
+        assertFalse(cardIds("kid").contains("kidFar"));
+        assertTrue(cardIds("adult").contains("adultFar"));
+    }
+
+    @Test
+    void searchesAreRateLimited() {
+        DiscoveryService limited = new DiscoveryService(store, users, privacy, new InMemoryKeyValueStore(), clock, Duration.ofMinutes(30), 10_000, 5_000,
+        2);
+        users.add("me", "ADULT", true);
+        limited.cards("me", 5);
+        limited.cards("me", 5);
+        ApiException e = assertThrows(ApiException.class, () -> limited.cards("me", 5));
+        assertEquals("TOO_MANY_SEARCHES", e.code());
     }
 
     @Test

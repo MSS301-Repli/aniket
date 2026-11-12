@@ -1,6 +1,7 @@
 package com.animallocket.discovery.client;
 
 import java.util.List;
+import java.util.Map;
 
 /** Các cổng sang service khác. Tách interface để test không cần mạng. */
 public final class Gateways {
@@ -17,6 +18,8 @@ public final class Gateways {
     public interface UserGateway {
         /** Trả null nếu không tồn tại. */
         Profile profile(String publicId);
+
+        Map<String, Profile> profiles(List<String> publicIds);
 
         Exclusions exclusions(String publicId);
     }

@@ -12,14 +12,18 @@ import org.springframework.stereotype.Service;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 @Service
 public class DiscoveryService {
     private static final Duration ONLINE_WINDOW = Duration.ofSeconds(60);
+    private static final Duration LEFT_MEMORY = Duration.ofDays(30);
 
     private final DiscoveryStore store;
     private final Gateways.UserGateway users;
@@ -27,16 +31,25 @@ public class DiscoveryService {
     private final KeyValueStore kv;
     private final Clock clock;
     private final Duration locationTtl;
+    private final double radiusAdult;
+    private final double radiusMinor;
+    private final int cardsPerMinute;
 
     public DiscoveryService(DiscoveryStore store, Gateways.UserGateway users,
                             LocationPrivacy privacy, KeyValueStore kv, Clock clock,
-                            @Value("${animal.discovery.location-ttl:30m}") Duration locationTtl) {
+                            @Value("${animal.discovery.location-ttl:30m}") Duration locationTtl,
+                            @Value("${animal.discovery.radius-adult-m:10000}") double radiusAdult,
+                            @Value("${animal.discovery.radius-minor-m:5000}") double radiusMinor,
+                            @Value("${animal.discovery.cards-per-minute:10}") int cardsPerMinute) {
         this.store = store;
         this.users = users;
         this.privacy = privacy;
         this.kv = kv;
         this.clock = clock;
         this.locationTtl = locationTtl;
+        this.radiusAdult = radiusAdult;
+        this.radiusMinor = radiusMinor;
+        this.cardsPerMinute = cardsPerMinute;
     }
 
     // ---------------- vị trí và online ----------------
@@ -82,6 +95,60 @@ public class DiscoveryService {
             status.put(id, kv.get(presenceKey(id)).map(v -> Long.parseLong(v) > threshold).orElse(false));
         }
         return new DiscoveryDtos.PresenceResponse(status);
+    }
+
+    // ---------------- bộ thẻ ----------------
+
+    public DiscoveryDtos.CardsResponse cards(String me, int limit) {
+        long minute = clock.instant().getEpochSecond() / 60;
+        if (kv.increment("rl:cards:" + me + ":" + minute, Duration.ofMinutes(2)) > cardsPerMinute) {
+            throw ApiException.tooMany("TOO_MANY_SEARCHES", "Bạn tìm quá nhanh, vui lòng thử lại sau ít phút");
+        }
+        Gateways.Profile self = requireDiscoverable(me);
+        int size = Math.max(1, Math.min(limit, 30));
+        boolean minor = "MINOR".equals(self.ageGroup());
+        Instant now = clock.instant();
+
+        Gateways.Exclusions ex = users.exclusions(me);
+        Set<String> excluded = new HashSet<>(ex.friends());
+        excluded.addAll(ex.blockedEitherWay());
+        excluded.add(me);
+        excluded.addAll(store.recentLeft(me, now.minus(LEFT_MEMORY)));
+        excluded.addAll(store.rights(me));
+
+        Map<String, Double> distance = new HashMap<>();
+        java.util.Optional<LatLon> center = store.location(self.ageGroup(), me);
+        center.ifPresent(c -> store.nearby(self.ageGroup(), c, minor ? radiusMinor : radiusAdult, size * 6)
+                .forEach(n -> distance.put(n.publicId(), n.distanceMeters())));
+        List<String> onlineIds = store.online(self.ageGroup(), now.minus(ONLINE_WINDOW), size * 6);
+        Set<String> onlineSet = new HashSet<>(onlineIds);
+
+        Set<String> candidateIds = new HashSet<>(distance.keySet());
+        candidateIds.addAll(onlineIds);
+        candidateIds.removeAll(excluded);
+        if (candidateIds.isEmpty()) {
+            return new DiscoveryDtos.CardsResponse(List.of(), false);
+        }
+
+        // Hồ sơ lấy mới từ user-service để chắc chắn người đó vẫn bật khám phá, còn hoạt động và cùng nhóm tuổi.
+        Map<String, Gateways.Profile> profiles = users.profiles(new ArrayList<>(candidateIds));
+        Set<String> boosted = store.boosted(now);
+
+        List<DiscoveryDtos.Card> cards = candidateIds.stream()
+                .map(profiles::get)
+                .filter(p -> p != null && p.active() && p.discoverable() && self.ageGroup().equals(p.ageGroup()))
+                .sorted(Comparator
+                        .comparing((Gateways.Profile p) -> !boosted.contains(p.publicId()))
+                        .thenComparingDouble(p -> distance.getOrDefault(p.publicId(), Double.MAX_VALUE))
+                        .thenComparing(p -> !onlineSet.contains(p.publicId()))
+                        .thenComparing(Gateways.Profile::publicId))
+                .limit(size)
+                .map(p -> new DiscoveryDtos.Card(p.publicId(), p.alias(), p.leadAnimal(), p.avatar(),
+                        distance.containsKey(p.publicId())
+                                ? LocationPrivacy.band(distance.get(p.publicId()), minor) : null,
+                        onlineSet.contains(p.publicId()), boosted.contains(p.publicId())))
+                .toList();
+        return new DiscoveryDtos.CardsResponse(cards, false);
     }
 
     // ---------------- nội bộ ----------------
