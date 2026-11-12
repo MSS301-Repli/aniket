@@ -10,6 +10,7 @@ import com.animallocket.post.domain.Comment;
 import com.animallocket.post.domain.MediaState;
 import com.animallocket.post.domain.Post;
 import com.animallocket.post.dto.PostDtos;
+import com.animallocket.post.messaging.PostDeleted;
 import com.animallocket.post.repo.CommentRepository;
 import com.animallocket.post.repo.MediaStateRepository;
 import com.animallocket.post.repo.PostLikeRepository;
@@ -95,6 +96,7 @@ public class PostService {
         p.setPublicKey(null);
         likes.deleteAllOfPost(postId);
         comments.deleteAllOfPost(postId);
+        outbox.publish(Topics.POST, PostDeleted.TYPE, postId, new PostDeleted(postId, me));
     }
 
     // ---------------- đọc ----------------
