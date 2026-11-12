@@ -1,0 +1,12 @@
+spring:
+  cloud:
+    gateway:
+      httpclient:
+        connect-timeout: 2000
+        response-timeout: 10s
+
+resilience4j:
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 10s
