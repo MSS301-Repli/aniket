@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
+import java.util.List;
 
 public final class PostDtos {
     private PostDtos() {
@@ -20,5 +21,9 @@ public final class PostDtos {
     public record PostView(String id, Author author, String caption, String mediaId, Post.Status status,
                            int likeCount, int commentCount, boolean likedByMe, Instant createdAt,
                            Instant publishedAt) {
+    }
+
+    /** {@code degraded=true}: không tải được danh sách bạn nên feed tạm thời trống (fail soft). */
+    public record FeedPage(List<PostView> items, Instant nextBefore, boolean degraded) {
     }
 }
