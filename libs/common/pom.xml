@@ -36,6 +36,11 @@
             <optional>true</optional>
         </dependency>
         <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
             <!-- DataIntegrityViolationException (org.springframework.dao) -->
             <groupId>org.springframework</groupId>
             <artifactId>spring-tx</artifactId>
