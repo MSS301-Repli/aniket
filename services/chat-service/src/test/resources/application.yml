@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: chat-service
+  cloud:
+    config:
+      enabled: false
+  kafka:
+    bootstrap-servers: localhost:9092
+    listener:
+      auto-startup: false
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+  data:
+    mongodb:
+      auto-index-creation: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:0/unused
+
+eureka:
+  client:
+    enabled: false
+
+animal:
+  kv:
+    type: memory
+  security:
+    enabled: false
+  chat:
+    max-messages-per-10s: 1000
+    # Test cũ kiểm tra logic TEXT/IMAGE; chế độ chỉ-ký-hiệu có test riêng (ChatServiceTest.glyphOnly...).
+    allowed-types: TEXT,IMAGE,GLYPH
