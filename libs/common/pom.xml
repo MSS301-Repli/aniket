@@ -30,6 +30,12 @@
             <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
         </dependency>
         <dependency>
+            <!-- Optional: service cần Redis tự thêm spring-boot-starter-data-redis. -->
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
             <!-- DataIntegrityViolationException (org.springframework.dao) -->
             <groupId>org.springframework</groupId>
             <artifactId>spring-tx</artifactId>
