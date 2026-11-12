@@ -25,6 +25,10 @@ class NotificationTest {
         return EventEnvelope.of(type, "test", "k", payload);
     }
 
+    private NotificationPlanner planner(DeviceDirectory dir) {
+        return new NotificationPlanner(dir, new NotificationMessagesConfig().notificationMessages(), "vi");
+    }
+
     @Test
     void contextLoadsWithLoggingSenderWhenFcmNotConfigured() {
         assertTrue(loggingSender != null);
@@ -38,7 +42,7 @@ class NotificationTest {
     @Test
     void newPostFansOutToEveryFriendButNotAuthor() {
         var dir = new FakeDirectory(Map.of(), Map.of("author", List.of("f1", "f2", "f3")));
-        var planner = new NotificationPlanner(dir);
+        var planner = planner(dir);
         var out = planner.plan(env(EventTypes.POST_PUBLISHED, new Events.PostPublished("p1", "author")));
         assertEquals(List.of("f1", "f2", "f3"), out.stream().map(Notification::recipientPublicId).toList());
         assertEquals("p1", out.get(0).data().get("postId"));
@@ -46,7 +50,7 @@ class NotificationTest {
 
     @Test
     void friendAcceptedNotifiesBothSides() {
-        var planner = new NotificationPlanner(new FakeDirectory(Map.of(), Map.of()));
+        var planner = planner(new FakeDirectory(Map.of(), Map.of()));
         var out = planner.plan(env(EventTypes.FRIEND_ACCEPTED, new Events.FriendAccepted("a", "b")));
         assertEquals(List.of("a", "b"), out.stream().map(Notification::recipientPublicId).toList());
     }
