@@ -1,0 +1,90 @@
+server:
+  port: 8103
+
+spring:
+  application:
+    name: media-service
+  config:
+    import: "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
+  cloud:
+    config:
+      username: ${CONFIG_USER:config}
+      password: ${CONFIG_PASSWORD:config-dev-password}
+      fail-fast: false
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/media_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=utf8}
+    username: ${DB_USER:animal}
+    password: ${DB_PASSWORD:animal}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:none}   # đổi sang validate sau khi đã kiểm tra với MySQL thật (xem docs/14)
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+    listener:
+      ack-mode: record
+  servlet:
+    multipart:
+      enabled: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_JWK_URI:http://localhost:8081/realms/animal-locket/protocol/openid-connect/certs}
+
+storage:
+  # Cloudflare R2 (tương thích S3). endpoint dạng https://<account-id>.r2.cloudflarestorage.com, region auto.
+  endpoint: ${R2_ENDPOINT:http://localhost:9000}
+  region: auto
+  access-key: ${R2_ACCESS_KEY:changeme}
+  secret-key: ${R2_SECRET_KEY:changeme}
+  bucket: ${R2_BUCKET:animal-photos}
+
+animal:
+  security:
+    enabled: true
+  media:
+    max-bytes: 10485760
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 3s
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  tracing:
+    sampling:
+      probability: ${TRACE_SAMPLING:1.0}
+  otlp:
+    tracing:
+      endpoint: ${OTLP_TRACING_ENDPOINT:http://localhost:4318/v1/traces}
