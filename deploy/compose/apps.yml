@@ -8,6 +8,8 @@ x-java-env: &java-env
   CONFIG_PASSWORD: ${CONFIG_PASSWORD:?Thiếu CONFIG_PASSWORD, hãy sao chép .env.example thành .env}
   EUREKA_URL: http://eureka-server:8761/eureka
   INTERNAL_TOKEN: ${INTERNAL_TOKEN:?Thiếu INTERNAL_TOKEN}
+  # libs/common đọc animal.internal-token (relaxed binding từ ANIMAL_INTERNAL_TOKEN).
+  ANIMAL_INTERNAL_TOKEN: ${INTERNAL_TOKEN:?Thiếu INTERNAL_TOKEN}
   KAFKA_BOOTSTRAP: kafka:9092
   # Gateway/service chỉ cần public key của Keycloak để kiểm tra JWT; gọi nội bộ nên không phụ thuộc hostname công khai.
   KEYCLOAK_JWK_URI: http://keycloak:8080/realms/animal-locket/protocol/openid-connect/certs
