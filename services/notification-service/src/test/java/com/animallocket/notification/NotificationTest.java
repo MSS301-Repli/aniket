@@ -6,20 +6,29 @@ import com.animallocket.common.event.Events;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.kafka.listener.CommonErrorHandler;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 class NotificationTest {
     @Autowired LoggingPushSender loggingSender;
+    @Autowired(required = false) CommonErrorHandler errorHandler;
+    @Autowired @Qualifier("pushExecutor") Executor pushExecutor;
     @MockBean JwtDecoder jwtDecoder;
     @MockBean DeviceDirectory contextDirectory;
 
@@ -47,6 +56,17 @@ class NotificationTest {
     @Test
     void loggingSenderOnlyReportsOk() {
         assertEquals(PushSender.Result.OK, loggingSender.send("device-token-123456", "t", "b", Map.of()));
+    }
+
+    @Test
+    void kafkaErrorHandlerForDlqIsWired() {
+        assertNotNull(errorHandler);
+    }
+
+    @Test
+    void pushExecutorRejectsInsteadOfDiscarding() {
+        var pool = assertInstanceOf(ThreadPoolTaskExecutor.class, pushExecutor).getThreadPoolExecutor();
+        assertInstanceOf(ThreadPoolExecutor.AbortPolicy.class, pool.getRejectedExecutionHandler());
     }
 
     @Test
