@@ -79,4 +79,25 @@ public class PostController {
     public void unlike(@RequestHeader(Headers.PUBLIC_ID) String me, @PathVariable String id) {
         posts.unlike(me, id);
     }
+
+    @PostMapping("/posts/{id}/comments")
+    @ResponseStatus(HttpStatus.CREATED)
+    public PostDtos.CommentView comment(@RequestHeader(Headers.PUBLIC_ID) String me, @PathVariable String id,
+                                        @Valid @RequestBody PostDtos.CommentRequest req) {
+        return posts.comment(me, id, req.text());
+    }
+
+    @GetMapping("/posts/{id}/comments")
+    public PostDtos.CommentPage comments(@RequestHeader(Headers.PUBLIC_ID) String me, @PathVariable String id,
+                                         @RequestParam(defaultValue = "0") long after,
+                                         @RequestParam(defaultValue = "30") int limit) {
+        return posts.comments(me, id, after, limit);
+    }
+
+    @DeleteMapping("/posts/{id}/comments/{commentId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteComment(@RequestHeader(Headers.PUBLIC_ID) String me, @PathVariable String id,
+                              @PathVariable long commentId) {
+        posts.deleteComment(me, id, commentId);
+    }
 }
