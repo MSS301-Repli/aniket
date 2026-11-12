@@ -18,11 +18,13 @@ class OutboxAutoConfigurationOrderingTest {
             // Cố ý liệt kê Outbox TRƯỚC Kafka: thứ tự phải do @AutoConfiguration(after=...) quyết định.
             .withConfiguration(AutoConfigurations.of(OutboxAutoConfiguration.class, KafkaAutoConfiguration.class))
             .withBean(OutboxRepository.class, () -> mock(OutboxRepository.class))
+            .withBean(ProcessedEventRepository.class, () -> mock(ProcessedEventRepository.class))
             .withPropertyValues("spring.kafka.bootstrap-servers=localhost:9092", "spring.application.name=test");
 
     @Test
     void relayIsCreatedWhenKafkaIsPresent() {
-        runner.run(ctx -> assertThat(ctx).hasSingleBean(OutboxRelay.class).hasSingleBean(OutboxService.class));
+        runner.run(ctx -> assertThat(ctx).hasSingleBean(OutboxRelay.class).hasSingleBean(OutboxService.class)
+                .hasSingleBean(IdempotencyService.class));
     }
 
     @Test
@@ -36,6 +38,7 @@ class OutboxAutoConfigurationOrderingTest {
         new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(OutboxAutoConfiguration.class))
                 .withBean(OutboxRepository.class, () -> mock(OutboxRepository.class))
+                .withBean(ProcessedEventRepository.class, () -> mock(ProcessedEventRepository.class))
                 .run(ctx -> assertThat(ctx).doesNotHaveBean(OutboxRelay.class).hasSingleBean(OutboxService.class));
     }
 }

@@ -52,3 +52,18 @@ UPDATE outbox_events SET failed_at = NULL, attempts = 0 WHERE id = '<id>';  -- r
 ```
 
 Đánh đổi: khi một event bị FAILED, event sau cùng key có thể đến consumer trước nó.
+
+## Idempotency phía consumer
+
+```java
+@Transactional
+void on(EventEnvelope env) {
+    if (!idempotency.firstTime(env.eventId())) return; // đã xử lý
+    // ... xử lý nghiệp vụ trong cùng transaction
+}
+```
+
+- Bảng `processed_events (event_id VARCHAR(36) PK, processed_at DATETIME(6) NOT NULL)`.
+- Hai consumer cùng nhận một event: INSERT thứ hai vi phạm khoá chính, Kafka thử lại, lần sau `firstTime` trả `false`.
+- Dấu vết cũ hơn `animal.outbox.processed-retention` (mặc định `7d`) được dọn mỗi giờ. Retention phải dài hơn thời gian
+  một event có thể bị giao lại (retry, replay DLQ).
