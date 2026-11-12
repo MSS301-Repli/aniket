@@ -6,7 +6,9 @@ x-java-env: &java-env
   CONFIG_SERVER_URL: http://config-server:8888
   CONFIG_USER: ${CONFIG_USER:-config}
   CONFIG_PASSWORD: ${CONFIG_PASSWORD:?Thiếu CONFIG_PASSWORD, hãy sao chép .env.example thành .env}
-  EUREKA_URL: http://eureka-server:8761/eureka
+  # Eureka bật basic auth: mọi client gửi kèm user/mật khẩu.
+  EUREKA_URL: http://${EUREKA_USER:-eureka}:${EUREKA_PASSWORD:?Thiếu EUREKA_PASSWORD}@eureka-server:8761/eureka
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
   INTERNAL_TOKEN: ${INTERNAL_TOKEN:?Thiếu INTERNAL_TOKEN}
   # libs/common đọc animal.internal-token (relaxed binding từ ANIMAL_INTERNAL_TOKEN).
   ANIMAL_INTERNAL_TOKEN: ${INTERNAL_TOKEN:?Thiếu INTERNAL_TOKEN}
@@ -31,6 +33,7 @@ x-java-deps: &java-deps
 x-redis-env: &redis-env
   REDIS_HOST: redis
   REDIS_PORT: "6379"
+  REDIS_PASSWORD: ${REDIS_PASSWORD:?Thiếu REDIS_PASSWORD}
   SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:?Thiếu REDIS_PASSWORD}
 
 services:
@@ -43,6 +46,8 @@ services:
       args: { MODULE_PATH: infra/eureka-server, APP_PORT: "8761" }
     environment:
       EUREKA_HOST: eureka-server
+      EUREKA_USER: ${EUREKA_USER:-eureka}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:?Thiếu EUREKA_PASSWORD}
 
   config-server:
     <<: *java-service
@@ -58,7 +63,7 @@ services:
       CONFIG_USER: ${CONFIG_USER:-config}
       CONFIG_PASSWORD: ${CONFIG_PASSWORD}
       CONFIG_REPO_PATH: file:/config-repo
-      EUREKA_URL: http://eureka-server:8761/eureka
+      EUREKA_URL: http://${EUREKA_USER:-eureka}:${EUREKA_PASSWORD:?Thiếu EUREKA_PASSWORD}@eureka-server:8761/eureka
     volumes:
       - ./infra/config-repo:/config-repo:ro
 
