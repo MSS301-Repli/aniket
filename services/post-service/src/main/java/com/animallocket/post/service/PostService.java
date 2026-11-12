@@ -9,7 +9,9 @@ import com.animallocket.post.client.UserDirectory;
 import com.animallocket.post.domain.MediaState;
 import com.animallocket.post.domain.Post;
 import com.animallocket.post.dto.PostDtos;
+import com.animallocket.post.repo.CommentRepository;
 import com.animallocket.post.repo.MediaStateRepository;
+import com.animallocket.post.repo.PostLikeRepository;
 import com.animallocket.post.repo.PostRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,14 +25,21 @@ import java.util.UUID;
 @Service
 public class PostService {
     private final PostRepository posts;
+    private final PostLikeRepository likes;
+    private final CommentRepository comments;
     private final MediaStateRepository mediaStates;
+    private final UserDirectory users;
     private final QuotaService quota;
     private final OutboxService outbox;
 
-    public PostService(PostRepository posts, MediaStateRepository mediaStates, QuotaService quota,
+    public PostService(PostRepository posts, PostLikeRepository likes, CommentRepository comments,
+                       MediaStateRepository mediaStates, UserDirectory users, QuotaService quota,
                        OutboxService outbox) {
         this.posts = posts;
+        this.likes = likes;
+        this.comments = comments;
         this.mediaStates = mediaStates;
+        this.users = users;
         this.quota = quota;
         this.outbox = outbox;
     }
@@ -65,6 +74,27 @@ public class PostService {
             outbox.publish(Topics.POST, EventTypes.POST_PUBLISHED, p.getId(), new Events.PostPublished(p.getId(), me));
         }
         return view(me, p, Map.of(), Set.of());
+    }
+
+    @Transactional
+    public void delete(String me, String postId) {
+        Post p = posts.findById(postId).filter(x -> x.getStatus() != Post.Status.DELETED)
+                .orElseThrow(() -> ApiException.notFound("Bài viết"));
+        if (!p.getAuthorId().equals(me)) {
+            throw ApiException.notFound("Bài viết");
+        }
+        p.setStatus(Post.Status.DELETED);
+        p.setPublicKey(null);
+        likes.deleteAllOfPost(postId);
+        comments.deleteAllOfPost(postId);
+    }
+
+    // ---------------- đọc ----------------
+
+    @Transactional(readOnly = true)
+    public PostDtos.PostView get(String me, String postId) {
+        Post p = visible(me, postId);
+        return view(me, p, Map.of(), likes.existsByPostIdAndUserId(postId, me) ? Set.of(postId) : Set.of());
     }
 
     // ---------------- sự kiện từ media-service ----------------
@@ -120,6 +150,24 @@ public class PostService {
             p.setStatus(Post.Status.REJECTED);
             p.setRejectReason(s.getReason());
         }
+    }
+
+    /** Bài chỉ hiện với tác giả hoặc bạn bè; người khác thấy "không tồn tại" (không lộ sự tồn tại). */
+    private Post visible(String me, String postId) {
+        Post p = posts.findById(postId).filter(x -> x.getStatus() != Post.Status.DELETED)
+                .orElseThrow(() -> ApiException.notFound("Bài viết"));
+        if (!p.getAuthorId().equals(me)) {
+            boolean friend;
+            try {
+                friend = users.areFriends(me, p.getAuthorId());
+            } catch (ApiException e) {
+                throw ApiException.notFound("Bài viết"); // không xác minh được thì ẩn
+            }
+            if (!friend || p.getStatus() != Post.Status.PUBLISHED) {
+                throw ApiException.notFound("Bài viết");
+            }
+        }
+        return p;
     }
 
     private PostDtos.PostView view(String me, Post p, Map<String, UserDirectory.Profile> profiles, Set<String> liked) {
