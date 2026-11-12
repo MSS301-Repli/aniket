@@ -13,6 +13,21 @@ spring:
       password: ${CONFIG_PASSWORD:}
       fail-fast: false
     gateway:
+      # Timeout lấy từ cấu hình (config-repo/api-gateway.yml ghi đè), có thể chỉnh bằng biến môi trường.
+      httpclient:
+        connect-timeout: ${GATEWAY_CONNECT_TIMEOUT_MS:2000}
+        response-timeout: ${GATEWAY_RESPONSE_TIMEOUT:10s}
+      default-filters:
+        - name: CircuitBreaker
+          args:
+            name: default
+            fallbackUri: forward:/fallback/default
+        - name: RequestRateLimiter
+          args:
+            key-resolver: "#{@userOrIpKeyResolver}"
+            redis-rate-limiter.replenishRate: ${GATEWAY_RATE_REPLENISH:20}
+            redis-rate-limiter.burstCapacity: ${GATEWAY_RATE_BURST:40}
+            redis-rate-limiter.requestedTokens: 1
       # Chỉ route theo tiền tố công khai; /internal/** không có route và còn bị chặn ở GatewayConfig.
       routes:
         - id: user-service
@@ -31,6 +46,17 @@ spring:
           uri: lb://discovery-service
           predicates:
             - Path=/api/v1/discovery/**
+          filters:
+            # Chặn dò vị trí: giới hạn chặt hơn route mặc định. Fail soft: lỗi thì trả danh sách rỗng.
+            - name: CircuitBreaker
+              args:
+                name: discovery
+                fallbackUri: forward:/fallback/discovery
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userOrIpKeyResolver}"
+                redis-rate-limiter.replenishRate: 2
+                redis-rate-limiter.burstCapacity: 10
         - id: chat-ws
           uri: lb:ws://chat-service
           predicates:
@@ -43,6 +69,11 @@ spring:
           uri: lb://billing-service
           predicates:
             - Path=/api/v1/billing/**,/webhooks/**,/pay/**
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
   security:
     oauth2:
       resourceserver:
@@ -52,6 +83,21 @@ spring:
 animal:
   # Khoá gọi /internal/** của user-service. Bắt buộc, không có mặc định: trống thì IdentityFilter chặn khởi động.
   internal-token: ${INTERNAL_TOKEN:}
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 5
+  timelimiter:
+    configs:
+      default:
+        # Giữ bằng response-timeout để circuit breaker không cắt request trước httpclient.
+        timeout-duration: ${GATEWAY_RESPONSE_TIMEOUT:10s}
 
 eureka:
   client:

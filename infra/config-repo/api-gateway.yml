@@ -1,12 +1,13 @@
+# Timeout của gateway (cùng biến môi trường với infra/api-gateway/application.yml).
 spring:
   cloud:
     gateway:
       httpclient:
-        connect-timeout: 2000
-        response-timeout: 10s
+        connect-timeout: ${GATEWAY_CONNECT_TIMEOUT_MS:2000}
+        response-timeout: ${GATEWAY_RESPONSE_TIMEOUT:10s}
 
 resilience4j:
   timelimiter:
     configs:
       default:
-        timeout-duration: 10s
+        timeout-duration: ${GATEWAY_RESPONSE_TIMEOUT:10s}
