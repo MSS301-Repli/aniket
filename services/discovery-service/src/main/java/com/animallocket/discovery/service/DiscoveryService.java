@@ -265,6 +265,34 @@ public class DiscoveryService {
         }
     }
 
+    // ---------------- sự kiện ----------------
+
+    public void forget(String publicId) {
+        store.forget(publicId);
+    }
+
+    public void setPro(String publicId, Instant expiresAt) {
+        Duration ttl = expiresAt == null ? Duration.ofDays(400) : Duration.between(clock.instant(), expiresAt);
+        if (ttl.isNegative() || ttl.isZero()) {
+            kv.delete("pro:" + publicId);
+        } else {
+            kv.set("pro:" + publicId, "1", ttl);
+        }
+    }
+
+    public void clearPro(String publicId) {
+        kv.delete("pro:" + publicId);
+    }
+
+    public int purge() {
+        try {
+            return store.purgeExpired(clock.instant());
+        } catch (RuntimeException e) {
+            log.warn("purge lỗi: {}", e.toString());
+            return 0;
+        }
+    }
+
     // ---------------- nội bộ ----------------
 
     private Gateways.Profile requireDiscoverable(String me) {

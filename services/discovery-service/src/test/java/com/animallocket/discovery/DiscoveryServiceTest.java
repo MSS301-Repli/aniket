@@ -486,4 +486,32 @@ class DiscoveryServiceTest {
 
         assertEquals(2, billing.consumed.size());
     }
+
+    @Test
+    void locationsExpireAndAreForgotten() {
+        users.add("me", "ADULT", true);
+        users.add("a", "ADULT", true);
+        svc.updateLocation("me", LAT, LON);
+        place("a", 100);
+        assertEquals(List.of("a"), cardIds("me"));
+
+        clock.now = clock.now.plus(Duration.ofMinutes(31));
+        assertTrue(svc.purge() >= 1);
+        svc.updateLocation("me", LAT, LON); // me cập nhật lại, a thì hết hạn
+        assertTrue(cardIds("me").isEmpty());
+
+        place("a", 100);
+        svc.forget("a");
+        assertTrue(cardIds("me").isEmpty());
+    }
+
+    @Test
+    void proSubscribersGetHigherSwipeLimit() {
+        users.add("me", "ADULT", true);
+        svc.setPro("me", clock.instant().plus(Duration.ofDays(30)));
+        for (int i = 0; i < 6; i++) {
+            svc.swipe("me", "t" + i, DiscoveryDtos.Direction.RIGHT);
+        }
+        assertThrows(ApiException.class, () -> svc.swipe("me", "t7", DiscoveryDtos.Direction.RIGHT));
+    }
 }
