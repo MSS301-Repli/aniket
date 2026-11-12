@@ -81,6 +81,17 @@ public class PostService {
         posts.findForUpdateByMediaId(e.mediaId()).ifPresent(p -> settle(p, state));
     }
 
+    /**
+     * Gỡ một bài kẹt ở PENDING_MEDIA dù đã có kết quả ảnh. Xảy ra khi {@link #create} và {@link #onPhotoReady}
+     * chạy song song: mỗi transaction không thấy dòng của bên kia nên không bên nào chuyển trạng thái.
+     * Gọi từ {@link PendingPostReconciler}, mỗi bài một transaction.
+     */
+    @Transactional
+    public void settlePending(String postId) {
+        posts.findForUpdateById(postId).ifPresent(p ->
+                mediaStates.findById(p.getMediaId()).ifPresent(state -> settle(p, state)));
+    }
+
     /** Chỉ đổi bài đang PENDING_MEDIA; bài đã được gọi phải đang giữ khoá dòng để không phát event hai lần. */
     private void settle(Post p, MediaState state) {
         if (p.getStatus() != Post.Status.PENDING_MEDIA) {
