@@ -1,1 +1,2 @@
 com.animallocket.common.config.CommonAutoConfiguration
+com.animallocket.common.kv.KeyValueAutoConfiguration
