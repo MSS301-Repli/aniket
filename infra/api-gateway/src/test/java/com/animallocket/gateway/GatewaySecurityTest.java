@@ -6,6 +6,9 @@ import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWeb
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockJwt;
+
 /** Context gateway khởi động không cần Config Server/Eureka/Keycloak, và JWT là bắt buộc trừ các path công khai. */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "spring.cloud.config.enabled=false",
@@ -29,8 +32,20 @@ class GatewaySecurityTest {
     @Test
     void publicPathsDoNotRequireJwt() {
         web.get().uri("/actuator/health").exchange().expectStatus().isOk();
-        // Không có route trong test nên 404, quan trọng là không bị 401.
-        web.post().uri("/webhooks/paypal").exchange().expectStatus().isNotFound();
-        web.get().uri("/pay/abc").exchange().expectStatus().isNotFound();
+        // billing-service không chạy trong test nên không phải 2xx; quan trọng là không bị 401.
+        web.post().uri("/webhooks/paypal").exchange().expectStatus().value(s -> assertNotEquals(401, s));
+        web.get().uri("/pay/abc").exchange().expectStatus().value(s -> assertNotEquals(401, s));
+    }
+
+    @Test
+    void internalApiIsBlockedEvenWithValidJwt() {
+        web.mutateWith(mockJwt()).get().uri("/internal/identity/some-sub").exchange().expectStatus().isForbidden();
+        web.mutateWith(mockJwt()).delete().uri("/internal/devices/tok").exchange().expectStatus().isForbidden();
+        web.get().uri("/internal/users").exchange().expectStatus().is4xxClientError();
+    }
+
+    @Test
+    void otherActuatorEndpointsRequireJwt() {
+        web.get().uri("/actuator/info").exchange().expectStatus().isUnauthorized();
     }
 }

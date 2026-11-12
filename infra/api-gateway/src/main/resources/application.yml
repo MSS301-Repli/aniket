@@ -12,6 +12,37 @@ spring:
       # Không có mật khẩu mặc định; chạy ngoài compose thì đặt CONFIG_PASSWORD (hoặc spring.cloud.config.enabled=false).
       password: ${CONFIG_PASSWORD:}
       fail-fast: false
+    gateway:
+      # Chỉ route theo tiền tố công khai; /internal/** không có route và còn bị chặn ở GatewayConfig.
+      routes:
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/v1/users/**,/api/v1/friends/**,/api/v1/blocks/**,/api/v1/reports/**,/api/v1/animals/**,/api/v1/devices/**
+        - id: post-service
+          uri: lb://post-service
+          predicates:
+            - Path=/api/v1/posts/**,/api/v1/feed/**
+        - id: media-service
+          uri: lb://media-service
+          predicates:
+            - Path=/api/v1/media/**
+        - id: discovery-service
+          uri: lb://discovery-service
+          predicates:
+            - Path=/api/v1/discovery/**
+        - id: chat-ws
+          uri: lb:ws://chat-service
+          predicates:
+            - Path=/ws/**
+        - id: chat-service
+          uri: lb://chat-service
+          predicates:
+            - Path=/api/v1/chat/**
+        - id: billing-service
+          uri: lb://billing-service
+          predicates:
+            - Path=/api/v1/billing/**,/webhooks/**,/pay/**
   security:
     oauth2:
       resourceserver:
