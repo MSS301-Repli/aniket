@@ -12,5 +12,11 @@
     <name>common</name>
     <description>Hằng số, event contract, xử lý lỗi, bảo mật và auto-config dùng chung</description>
 
-    <!-- Khung rỗng do PLT dựng sẵn: mảng sở hữu tự thêm dependencies/build vào đây, không cần sửa root pom. -->
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 </project>
