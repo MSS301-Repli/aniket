@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.AutoConfigurationPackage;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.boot.convert.DurationStyle;
 import org.springframework.context.annotation.Bean;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -20,7 +21,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * TRƯỚC khi KafkaTemplate tồn tại và OutboxRelay âm thầm không bao giờ được tạo (event kẹt trong bảng outbox).
  * Tắt relay (test): {@code animal.outbox.relay.enabled=false}.
  */
-@AutoConfiguration(after = KafkaAutoConfiguration.class)
+@AutoConfiguration(after = KafkaAutoConfiguration.class,
+        afterName = "org.springframework.boot.actuate.autoconfigure.metrics.CompositeMeterRegistryAutoConfiguration")
 @AutoConfigurationPackage
 @EnableScheduling
 public class OutboxAutoConfiguration {
@@ -35,6 +37,15 @@ public class OutboxAutoConfiguration {
     IdempotencyService idempotencyService(ProcessedEventRepository repository,
                                           @Value("${animal.outbox.processed-retention:7d}") String retention) {
         return new IdempotencyService(repository, DurationStyle.detectAndParse(retention));
+    }
+
+    /** Gauge độ trễ outbox cho cảnh báo "Outbox kẹt" (Prometheus: outbox_pending, outbox_oldest_pending_age_seconds). */
+    @Bean
+    @ConditionalOnBean(MeterRegistry.class)
+    OutboxMetrics outboxMetrics(OutboxRepository repository, MeterRegistry registry) {
+        OutboxMetrics metrics = new OutboxMetrics(repository);
+        metrics.bindTo(registry);
+        return metrics;
     }
 
     @Bean

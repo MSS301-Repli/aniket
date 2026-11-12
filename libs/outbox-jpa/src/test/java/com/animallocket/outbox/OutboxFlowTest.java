@@ -180,6 +180,19 @@ class OutboxFlowTest {
     }
 
     @Test
+    void metricQueriesCountOnlyPendingEvents() {
+        assertThat(repository.oldestPendingCreatedAt()).isNull();
+        publish("a");
+        publish("b");
+        Instant firstCreated = rows().get(0).getCreatedAt();
+        assertThat(repository.countByPublishedAtIsNullAndFailedAtIsNull()).isEqualTo(2);
+        assertThat(repository.oldestPendingCreatedAt()).isEqualTo(firstCreated);
+        tx.executeWithoutResult(s -> relay.relay());
+        assertThat(repository.countByPublishedAtIsNullAndFailedAtIsNull()).isZero();
+        assertThat(repository.oldestPendingCreatedAt()).isNull();
+    }
+
+    @Test
     void cleanupRemovesOnlyOldPublishedEvents() {
         publish("old");
         publish("pending");
