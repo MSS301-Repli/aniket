@@ -31,7 +31,9 @@ public class OutboxAutoConfiguration {
     @Bean
     @ConditionalOnBean(KafkaTemplate.class)
     @ConditionalOnProperty(name = "animal.outbox.relay.enabled", havingValue = "true", matchIfMissing = true)
-    OutboxRelay outboxRelay(OutboxRepository repository, KafkaTemplate<String, String> kafka) {
-        return new OutboxRelay(repository, kafka);
+    OutboxRelay outboxRelay(OutboxRepository repository, KafkaTemplate<String, String> kafka,
+                            @Value("${animal.outbox.relay.max-attempts:" + OutboxRelay.DEFAULT_MAX_ATTEMPTS + "}")
+                            int maxAttempts) {
+        return new OutboxRelay(repository, kafka, maxAttempts);
     }
 }

@@ -13,10 +13,12 @@ import java.util.List;
 
 public interface OutboxRepository extends JpaRepository<OutboxEvent, String> {
 
-    /** SKIP LOCKED (timeout -2): nhiều instance cùng chạy relay mà không giẫm nhau. */
+    /** Event chờ đẩy (chưa đẩy, chưa FAILED). SKIP LOCKED (timeout -2): nhiều instance relay không giẫm nhau. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "-2"))
-    List<OutboxEvent> findTop100ByPublishedAtIsNullOrderByCreatedAtAsc();
+    List<OutboxEvent> findTop100ByPublishedAtIsNullAndFailedAtIsNullOrderByCreatedAtAsc();
+
+    long countByFailedAtIsNotNull();
 
     @Modifying
     @Query("delete from OutboxEvent e where e.publishedAt is not null and e.publishedAt < :before")
