@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class IdentityFilterTest {
@@ -116,6 +117,12 @@ class IdentityFilterTest {
         StepVerifier.create(run(filter(broken), ex, auth("sub-y"))).verifyComplete();
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, ex.getResponse().getStatusCode());
         assertNull(forwarded.get());
+    }
+
+    @Test
+    void blankInternalTokenFailsAtStartup() {
+        assertThrows(IllegalStateException.class, () -> new IdentityFilter(WebClient.builder(), " "));
+        assertThrows(IllegalStateException.class, () -> new IdentityFilter(WebClient.builder(), null));
     }
 
     @Test

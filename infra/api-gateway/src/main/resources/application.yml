@@ -50,8 +50,8 @@ spring:
           jwk-set-uri: ${KEYCLOAK_JWK_URI:http://localhost:8081/realms/animal-locket/protocol/openid-connect/certs}
 
 animal:
-  # Khoá gọi /internal/** của user-service. Bắt buộc, không có mặc định (fail fast).
-  internal-token: ${INTERNAL_TOKEN}
+  # Khoá gọi /internal/** của user-service. Bắt buộc, không có mặc định: trống thì IdentityFilter chặn khởi động.
+  internal-token: ${INTERNAL_TOKEN:}
 
 eureka:
   client:

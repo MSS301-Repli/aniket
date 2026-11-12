@@ -47,7 +47,11 @@ public class IdentityFilter implements GlobalFilter, Ordered {
     private final Cache<String, String> cache = Caffeine.newBuilder()
             .maximumSize(100_000).expireAfterWrite(Duration.ofMinutes(5)).build();
 
-    public IdentityFilter(WebClient.Builder lbBuilder, @Value("${animal.internal-token}") String internalToken) {
+    public IdentityFilter(WebClient.Builder lbBuilder, @Value("${animal.internal-token:}") String internalToken) {
+        // config-repo phục vụ ${INTERNAL_TOKEN:} nên giá trị có thể rỗng: chặn ngay lúc khởi động thay vì gửi token rỗng.
+        if (internalToken == null || internalToken.isBlank()) {
+            throw new IllegalStateException("animal.internal-token (INTERNAL_TOKEN) chưa được đặt");
+        }
         this.client = lbBuilder.baseUrl("http://user-service").build();
         this.internalToken = internalToken;
     }
