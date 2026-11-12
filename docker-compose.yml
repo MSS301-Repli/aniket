@@ -1,7 +1,7 @@
 # =====================================================================================================
 #  ANIMAL LOCKET — Docker Compose (file gốc, chỉ ghép các fragment trong deploy/compose/ bằng `include`)
 #
-#  Profile:   core  hạ tầng (Kafka, Redis, ...) + job khởi tạo
+#  Profile:   core  hạ tầng (Kafka, Redis, Keycloak, Traefik) + job khởi tạo
 #             app   config-server, eureka, gateway, 7 service nghiệp vụ
 #             obs   Prometheus, Loki, Tempo, Grafana, Alloy
 #
@@ -14,4 +14,6 @@ name: animal-locket
 
 include:
   - path: deploy/compose/core.yml
+    project_directory: .
+  - path: deploy/compose/edge.yml
     project_directory: .
