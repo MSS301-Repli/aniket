@@ -1,0 +1,30 @@
+animal:
+  billing:
+    expiry-grace: 1h
+    # CHỈ bật khi phát triển: tin biên lai do client tự khai.
+    dev-store:
+      enabled: ${BILLING_DEV_STORE:false}
+    paypal:
+      mode: ${PAYPAL_MODE:sandbox}
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        wait-duration-in-open-state: 30s
+    instances:
+      # KHÔNG dùng `{}`: qua Config Server (JSON) map rỗng bind lỗi -> service không khởi động.
+      store-apple:
+        base-config: default
+      store-google:
+        base-config: default
+  retry:
+    instances:
+      store-apple:
+        max-attempts: 3
+        wait-duration: 500ms
+        enable-exponential-backoff: true
+      store-google:
+        max-attempts: 3
+        wait-duration: 500ms
+        enable-exponential-backoff: true
