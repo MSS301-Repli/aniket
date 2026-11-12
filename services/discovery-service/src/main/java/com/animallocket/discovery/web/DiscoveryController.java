@@ -64,12 +64,18 @@ public class DiscoveryController {
         } catch (com.animallocket.common.web.ApiException e) {
             if (e.status() == HttpStatus.SERVICE_UNAVAILABLE) {
                 log.warn("Bộ thẻ tạm thời không có: {}", e.getMessage());
-                return new DiscoveryDtos.CardsResponse(List.of(), true);
+                return new DiscoveryDtos.CardsResponse(List.of(), true, 0);
             }
             throw e;
         } catch (org.springframework.dao.DataAccessException e) {
             log.warn("Redis lỗi, trả bộ thẻ rỗng: {}", e.toString());
-            return new DiscoveryDtos.CardsResponse(List.of(), true);
+            return new DiscoveryDtos.CardsResponse(List.of(), true, 0);
         }
+    }
+
+    @PostMapping("/swipes")
+    public DiscoveryDtos.SwipeResponse swipe(@RequestHeader(Headers.PUBLIC_ID) String me,
+                                             @Valid @RequestBody DiscoveryDtos.SwipeRequest req) {
+        return discovery.swipe(me, req.targetPublicId(), req.direction());
     }
 }

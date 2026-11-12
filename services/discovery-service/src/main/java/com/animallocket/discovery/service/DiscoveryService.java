@@ -12,6 +12,9 @@ import org.springframework.stereotype.Service;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -22,6 +25,7 @@ import java.util.Set;
 
 @Service
 public class DiscoveryService {
+    private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final Duration ONLINE_WINDOW = Duration.ofSeconds(60);
     private static final Duration LEFT_MEMORY = Duration.ofDays(30);
 
@@ -30,6 +34,8 @@ public class DiscoveryService {
     private final LocationPrivacy privacy;
     private final KeyValueStore kv;
     private final Clock clock;
+    private final int swipesFree;
+    private final int swipesPro;
     private final Duration locationTtl;
     private final double radiusAdult;
     private final double radiusMinor;
@@ -37,6 +43,8 @@ public class DiscoveryService {
 
     public DiscoveryService(DiscoveryStore store, Gateways.UserGateway users,
                             LocationPrivacy privacy, KeyValueStore kv, Clock clock,
+                            @Value("${animal.limits.swipes-per-day.free:30}") int swipesFree,
+                            @Value("${animal.limits.swipes-per-day.pro:150}") int swipesPro,
                             @Value("${animal.discovery.location-ttl:30m}") Duration locationTtl,
                             @Value("${animal.discovery.radius-adult-m:10000}") double radiusAdult,
                             @Value("${animal.discovery.radius-minor-m:5000}") double radiusMinor,
@@ -46,6 +54,8 @@ public class DiscoveryService {
         this.privacy = privacy;
         this.kv = kv;
         this.clock = clock;
+        this.swipesFree = swipesFree;
+        this.swipesPro = swipesPro;
         this.locationTtl = locationTtl;
         this.radiusAdult = radiusAdult;
         this.radiusMinor = radiusMinor;
@@ -127,7 +137,7 @@ public class DiscoveryService {
         candidateIds.addAll(onlineIds);
         candidateIds.removeAll(excluded);
         if (candidateIds.isEmpty()) {
-            return new DiscoveryDtos.CardsResponse(List.of(), false);
+            return new DiscoveryDtos.CardsResponse(List.of(), false, swipesLeft(me));
         }
 
         // Hồ sơ lấy mới từ user-service để chắc chắn người đó vẫn bật khám phá, còn hoạt động và cùng nhóm tuổi.
@@ -148,7 +158,41 @@ public class DiscoveryService {
                                 ? LocationPrivacy.band(distance.get(p.publicId()), minor) : null,
                         onlineSet.contains(p.publicId()), boosted.contains(p.publicId())))
                 .toList();
-        return new DiscoveryDtos.CardsResponse(cards, false);
+        return new DiscoveryDtos.CardsResponse(cards, false, swipesLeft(me));
+    }
+
+    // ---------------- quẹt ----------------
+
+    public DiscoveryDtos.SwipeResponse swipe(String me, String target, DiscoveryDtos.Direction dir) {
+        if (me.equals(target)) {
+            throw ApiException.badRequest("SELF_SWIPE", "Không thể quẹt chính mình");
+        }
+        Instant now = clock.instant();
+        if (dir == DiscoveryDtos.Direction.LEFT) {
+            store.recordLeft(me, target, now);
+            return new DiscoveryDtos.SwipeResponse("SKIPPED", swipesLeft(me));
+        }
+
+        String key = swipeQuotaKey(me);
+        long used = kv.increment(key, Duration.ofHours(30));
+        if (used > limitFor(me)) {
+            kv.decrement(key);
+            throw ApiException.tooMany("SWIPE_LIMIT", "Bạn đã hết lượt quẹt phải hôm nay");
+        }
+        String result;
+        try {
+            result = users.swipeRight(me, target);
+        } catch (RuntimeException e) {
+            kv.decrement(key); // lỗi hệ thống không được trừ lượt của người dùng
+            throw e;
+        }
+        if ("BLOCKED".equals(result) || "ALREADY_FRIENDS".equals(result) || "ALREADY_REQUESTED".equals(result)) {
+            kv.decrement(key);
+        }
+        if (!"BLOCKED".equals(result)) {
+            store.recordRight(me, target, now);
+        }
+        return new DiscoveryDtos.SwipeResponse(result, swipesLeft(me));
     }
 
     // ---------------- nội bộ ----------------
@@ -166,5 +210,18 @@ public class DiscoveryService {
 
     private static String presenceKey(String id) {
         return "presence:" + id;
+    }
+
+    private int limitFor(String me) {
+        return kv.get("pro:" + me).isPresent() ? swipesPro : swipesFree;
+    }
+
+    private int swipesLeft(String me) {
+        long used = kv.get(swipeQuotaKey(me)).map(Long::parseLong).orElse(0L);
+        return (int) Math.max(0, limitFor(me) - used);
+    }
+
+    private String swipeQuotaKey(String me) {
+        return "quota:swipe:" + me + ":" + DateTimeFormatter.BASIC_ISO_DATE.format(LocalDate.now(clock.withZone(ZONE)));
     }
 }
