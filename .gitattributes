@@ -1,0 +1,2 @@
+# Script triển khai phải chạy được trên Linux kể cả khi checkout/sửa trên Windows.
+*.sh text eol=lf

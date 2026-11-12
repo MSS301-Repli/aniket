@@ -1,5 +1,7 @@
 # Triển khai Animal Locket bằng Docker Compose
 
+Máy chủ demo (overlay `deploy/demo/`, HTTPS, DB tự chạy, backup/restore): xem [runbook](../docs/deploy-demo.md).
+
 > **Trạng thái kiểm chứng:** đã chạy `docker compose config` (không cần Docker daemon). **Chưa chạy `docker compose up` thật.**
 
 ## 1. Cấu trúc
@@ -18,6 +20,7 @@ với `project_directory: .`, nên mọi đường dẫn tương đối và file
 | `deploy/observability/` | Cấu hình Prometheus (+ `alerts.yml`), Loki, Tempo, Alloy, Grafana (datasource + dashboard) |
 | `deploy/docker/Dockerfile.java` | Build Maven nhiều giai đoạn, dùng chung cho mọi module (`MODULE_PATH`, `APP_PORT`) |
 | `deploy/docker/Dockerfile.runtime` | Chỉ đóng gói JAR đã build sẵn (CI/demo), không chạy Maven |
+| `deploy/demo/` | Overlay demo, `generate-env.sh`, `deploy-release.sh`, `smoke-check.sh`, `backup.sh`, `validate-ci.sh` |
 | `deploy/secrets/` | Nơi đặt khoá FCM/App Store/Google Play, mount vào `/secrets`. **Không commit** (đã nằm trong `.gitignore`) |
 | `deploy/keycloak/animal-locket-realm.json` | Realm `animal-locket` (import khi Keycloak khởi động lần đầu, không chứa user/mật khẩu) |
 | `deploy/traefik/` | Cấu hình tĩnh (`traefik.yml`) + middleware/header bảo mật + TLS (`dynamic/`) |
