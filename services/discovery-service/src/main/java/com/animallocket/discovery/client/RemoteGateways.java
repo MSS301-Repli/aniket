@@ -101,10 +101,12 @@ class RemoteBillingGateway implements Gateways.BillingGateway {
     }
 
     @Override
-    public boolean consumeBoost(String publicId) {
+    public boolean consumeBoost(String publicId, String idempotencyKey) {
         return breakers.create("billing-service").run(() -> {
             try {
-                client.post().uri("/internal/wallet/consume").body(Map.of("publicId", publicId, "item", "BOOST"))
+                // billing-service hiện bỏ qua header này; gửi sẵn để sau này khử trùng lặp phía billing.
+                client.post().uri("/internal/wallet/consume").header(Headers.IDEMPOTENCY_KEY, idempotencyKey)
+                        .body(Map.of("publicId", publicId, "item", "BOOST"))
                         .retrieve().toBodilessEntity();
                 return true;
             } catch (HttpClientErrorException e) {
