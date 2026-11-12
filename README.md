@@ -15,6 +15,8 @@ cd aniket
 2. Commit theo [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, ...).
 3. Mở Pull Request vào `dev` (squash merge). `main` chỉ nhận PR từ `dev` khi release.
 
+Chi tiết: [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Trạng thái
 
 Repo đang ở giai đoạn khởi tạo.
