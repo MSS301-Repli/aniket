@@ -4,17 +4,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockJwt;
 
 /** Context gateway khởi động không cần Config Server/Eureka/Keycloak, và JWT là bắt buộc trừ các path công khai. */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
-        "spring.cloud.config.enabled=false",
-        "eureka.client.enabled=false",
-        "animal.internal-token=test-token"
-})
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
 @AutoConfigureWebTestClient
 class GatewaySecurityTest {
     @Autowired WebTestClient web;
@@ -32,7 +30,7 @@ class GatewaySecurityTest {
     @Test
     void publicPathsDoNotRequireJwt() {
         web.get().uri("/actuator/health").exchange().expectStatus().isOk();
-        // billing-service không chạy trong test nên không phải 2xx; quan trọng là không bị 401.
+        // billing-service không chạy trong test nên gặp fallback 503; quan trọng là không bị 401.
         web.post().uri("/webhooks/paypal").exchange().expectStatus().value(s -> assertNotEquals(401, s));
         web.get().uri("/pay/abc").exchange().expectStatus().value(s -> assertNotEquals(401, s));
     }

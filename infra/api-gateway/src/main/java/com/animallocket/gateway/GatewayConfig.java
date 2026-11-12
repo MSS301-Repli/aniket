@@ -9,6 +9,11 @@ import org.springframework.security.config.annotation.web.reactive.EnableWebFlux
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
+import org.springframework.cloud.gateway.support.ipresolver.XForwardedRemoteAddressResolver;
+import reactor.core.publisher.Mono;
+
+import java.net.InetSocketAddress;
 
 @Configuration
 @EnableWebFluxSecurity
@@ -45,5 +50,24 @@ public class GatewayConfig {
     @LoadBalanced
     WebClient.Builder loadBalancedWebClientBuilder() {
         return WebClient.builder();
+    }
+
+    /**
+     * Rate limit theo publicId nếu có, nếu không thì theo IP thật của client. Gateway luôn đứng sau Traefik nên
+     * IP kết nối là của Traefik; đọc X-Forwarded-For (tin tối đa 1 proxy, tức Traefik) để mỗi người một bucket.
+     * X-Public-Id ở đây luôn do IdentityFilter gắn (header client gửi đã bị xoá vì filter đó chạy trước).
+     */
+    @Bean
+    KeyResolver userOrIpKeyResolver() {
+        var resolver = XForwardedRemoteAddressResolver.maxTrustedIndex(1);
+        return exchange -> {
+            String id = exchange.getRequest().getHeaders().getFirst(IdentityFilter.PUBLIC_ID);
+            if (id != null && !id.isBlank()) {
+                return Mono.just("u:" + id);
+            }
+            InetSocketAddress addr = resolver.resolve(exchange);
+            return Mono.just("ip:" + (addr == null || addr.getAddress() == null
+                    ? "unknown" : addr.getAddress().getHostAddress()));
+        };
     }
 }
