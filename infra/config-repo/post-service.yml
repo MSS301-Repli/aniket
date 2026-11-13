@@ -1,0 +1,11 @@
+animal:
+  limits:
+    photos-per-day:
+      free: 10
+      pro: 50
+
+resilience4j:
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 2s
