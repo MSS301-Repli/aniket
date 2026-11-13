@@ -1,0 +1,36 @@
+name: Observability lint
+
+on:
+  push:
+    branches: [dev, main]
+    paths: ["deploy/observability/**", ".github/workflows/observability-lint.yml"]
+  pull_request:
+    branches: [dev, main]
+    paths: ["deploy/observability/**", ".github/workflows/observability-lint.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  prometheus:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      # Cùng phiên bản với deploy/compose/obs.yml.
+      PROM_IMAGE: prom/prometheus:v2.55.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: promtool check config + rules
+        run: |
+          docker run --rm -v "$PWD/deploy/observability/prometheus:/etc/prometheus:ro" \
+            --entrypoint promtool "$PROM_IMAGE" check config /etc/prometheus/prometheus.yml
+      - name: promtool test rules
+        run: |
+          docker run --rm -v "$PWD/deploy/observability/prometheus:/etc/prometheus:ro" -w /etc/prometheus \
+            --entrypoint promtool "$PROM_IMAGE" test rules alerts.test.yml
+      - name: Grafana dashboards là JSON hợp lệ
+        run: for f in deploy/observability/grafana/dashboards/*.json; do jq empty "$f"; done
