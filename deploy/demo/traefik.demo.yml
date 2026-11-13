@@ -1,0 +1,63 @@
+# Cấu hình tĩnh Traefik cho demo HTTPS công khai: HTTP chuyển hướng sang HTTPS, chứng chỉ Let's Encrypt tự cấp và gia hạn.
+# Thay deploy/traefik/traefik.yml qua overlay docker-compose.demo.yml; middleware/TLS options vẫn lấy từ deploy/traefik/dynamic/.
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+log:
+  level: INFO
+
+accessLog:
+  format: json
+  filters:
+    statusCodes: ["400-599"]
+    minDuration: 1s
+  fields:
+    headers:
+      defaultMode: drop
+    names:
+      ClientHost: keep
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+  websecure:
+    address: ":443"
+    http:
+      tls: {}
+  traefik:
+    address: ":8080"
+
+api:
+  dashboard: true
+  insecure: true               # chỉ trên entrypoint "traefik", compose publish ra 127.0.0.1
+
+ping:
+  entryPoint: traefik
+
+metrics:
+  prometheus:
+    entryPoint: traefik
+
+providers:
+  docker:
+    exposedByDefault: false
+    network: animal-net
+    watch: true
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+# Không đặt email: Let's Encrypt cho phép đăng ký không email (không nhận thư nhắc hết hạn; Traefik tự gia hạn).
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      storage: /letsencrypt/acme.json
+      httpChallenge:
+        entryPoint: web

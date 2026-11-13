@@ -1,0 +1,62 @@
+# Middleware dùng chung. Gắn vào router bằng label: traefik.http.routers.<tên>.middlewares=ratelimit@file,...
+http:
+  middlewares:
+
+    # Header an toàn cho API/file (JSON, ảnh): không cần CSP phức tạp, cấm nhúng và cấm đoán MIME.
+    security-headers:
+      headers:
+        stsSeconds: 31536000          # chỉ có tác dụng trên HTTPS
+        stsIncludeSubdomains: true
+        contentTypeNosniff: true
+        frameDeny: true
+        referrerPolicy: "no-referrer"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          Content-Security-Policy: "default-src 'none'; frame-ancestors 'none'"
+          X-Powered-By: ""
+          Server: ""
+
+    # Trang thanh toán web /pay/** (billing-service, Thymeleaf): cần CSS nội dòng, phông tự phục vụ (/pay/assets/fonts, font-src 'self')
+    # và form chuyển sang PayPal. Không script, không ảnh ngoài: minh hoạ là SVG nội dòng.
+    # form-action phải liệt kê paypal.com vì trình duyệt cũng áp dụng nó cho các lần chuyển hướng sau khi gửi form.
+    security-headers-pay:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        contentTypeNosniff: true
+        frameDeny: true
+        referrerPolicy: "no-referrer"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          Content-Security-Policy: "default-src 'none'; style-src 'unsafe-inline'; font-src 'self'; form-action 'self' https://www.paypal.com https://www.sandbox.paypal.com https://pay.payos.vn; base-uri 'none'; frame-ancestors 'none'"
+          X-Powered-By: ""
+          Server: ""
+
+    # Cho giao diện web (Keycloak, Grafana): không đặt CSP vì sẽ làm hỏng giao diện của họ.
+    security-headers-ui:
+      headers:
+        stsSeconds: 31536000
+        contentTypeNosniff: true
+        frameDeny: false              # Keycloak/Grafana tự quản lý X-Frame-Options
+        referrerPolicy: "same-origin"
+        customResponseHeaders:
+          X-Powered-By: ""
+          Server: ""
+
+    # Giới hạn thô theo IP ở rìa. Giới hạn theo người dùng nằm ở API gateway (Redis).
+    # Lưu ý: nhiều người dùng sau cùng một NAT (mạng di động) chia sẻ một IP, nên đừng đặt quá thấp.
+    ratelimit:
+      rateLimit:
+        average: 50
+        period: 1s
+        burst: 100
+
+    # Chỉ cho mạng nội bộ/loopback vào các giao diện quản trị. Production: thay bằng VPN hoặc IP cố định của đội vận hành.
+    admin-only:
+      ipAllowList:
+        sourceRange:
+          - "127.0.0.1/32"
+          - "::1/128"
+          - "10.0.0.0/8"
+          - "172.16.0.0/12"
+          - "192.168.0.0/16"
