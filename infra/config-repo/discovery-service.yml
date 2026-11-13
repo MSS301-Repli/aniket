@@ -1,0 +1,22 @@
+animal:
+  discovery:
+    # Khoá tạo độ lệch vị trí theo từng người: chỉ lấy từ biến môi trường (không mặc định).
+    secret: ${DISCOVERY_SECRET}
+    location-ttl: 30m
+    radius-adult-m: 10000
+    radius-minor-m: 5000
+    cards-per-minute: 10
+  limits:
+    swipes-per-day:
+      free: 30
+      pro: 150
+
+resilience4j:
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 2s
+    instances:
+      # Quẹt gọi user-service tạo lời mời (~3,5 s với DB cloud); 2 s làm báo lỗi giả. Gọi lại an toàn.
+      user-service:
+        timeout-duration: 6s

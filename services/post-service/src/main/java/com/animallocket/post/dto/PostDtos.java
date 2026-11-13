@@ -26,4 +26,13 @@ public final class PostDtos {
     /** {@code degraded=true}: không tải được danh sách bạn nên feed tạm thời trống (fail soft). */
     public record FeedPage(List<PostView> items, Instant nextBefore, boolean degraded) {
     }
+
+    public record CommentRequest(@NotBlank @Size(max = 1000) String text) {
+    }
+
+    public record CommentView(Long id, Author author, String text, Instant createdAt) {
+    }
+
+    public record CommentPage(List<CommentView> items, Long nextAfter) {
+    }
 }

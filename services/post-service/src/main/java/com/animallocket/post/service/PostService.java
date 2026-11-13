@@ -6,9 +6,11 @@ import com.animallocket.common.event.Events;
 import com.animallocket.common.web.ApiException;
 import com.animallocket.outbox.OutboxService;
 import com.animallocket.post.client.UserDirectory;
+import com.animallocket.post.domain.Comment;
 import com.animallocket.post.domain.MediaState;
 import com.animallocket.post.domain.Post;
 import com.animallocket.post.dto.PostDtos;
+import com.animallocket.post.messaging.PostDeleted;
 import com.animallocket.post.repo.CommentRepository;
 import com.animallocket.post.repo.MediaStateRepository;
 import com.animallocket.post.repo.PostLikeRepository;
@@ -18,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -93,6 +96,7 @@ public class PostService {
         p.setPublicKey(null);
         likes.deleteAllOfPost(postId);
         comments.deleteAllOfPost(postId);
+        outbox.publish(Topics.POST, PostDeleted.TYPE, postId, new PostDeleted(postId, me));
     }
 
     // ---------------- đọc ----------------
@@ -101,6 +105,25 @@ public class PostService {
     public PostDtos.PostView get(String me, String postId) {
         Post p = visible(me, postId);
         return view(me, p, Map.of(), likes.existsByPostIdAndUserId(postId, me) ? Set.of(postId) : Set.of());
+    }
+
+    /** Feed: bài đã PUBLISHED của bạn bè và của chính mình, mới nhất trước, phân trang theo thời điểm đăng. */
+    @Transactional(readOnly = true)
+    public PostDtos.FeedPage feed(String me, Instant before, int limit) {
+        Set<String> authors;
+        try {
+            authors = new HashSet<>(users.friendIds(me));
+        } catch (ApiException e) {
+            return new PostDtos.FeedPage(List.of(), null, true); // fail soft: ẩn bài khi không biết ai là bạn
+        }
+        authors.add(me);
+        int size = Math.max(1, Math.min(limit, MAX_PAGE));
+        List<Post> page = posts.findByAuthorIdInAndStatusAndPublishedAtLessThanOrderByPublishedAtDesc(
+                authors, Post.Status.PUBLISHED, before == null ? Instant.now().plusSeconds(60) : before,
+                PageRequest.of(0, size));
+        List<PostDtos.PostView> items = views(me, page);
+        Instant next = page.size() == size ? page.get(page.size() - 1).getPublishedAt() : null;
+        return new PostDtos.FeedPage(items, next, false);
     }
 
     /**
@@ -140,6 +163,79 @@ public class PostService {
         return views(me, page);
     }
 
+    // ---------------- like / comment ----------------
+
+    @Transactional
+    public void like(String me, String postId) {
+        Post p = visible(me, postId);
+        if (p.getStatus() != Post.Status.PUBLISHED) {
+            throw ApiException.notFound("Bài viết");
+        }
+        // Dựa vào ràng buộc unique (post_id, user_id): chèn bỏ qua khi trùng nên hai request đồng thời
+        // cũng chỉ ghi một dòng, chỉ request thắng mới tăng bộ đếm và phát event.
+        if (likes.insertIfAbsent(postId, me, Instant.now()) == 0) {
+            return;
+        }
+        posts.incLikes(postId);
+        if (!p.getAuthorId().equals(me)) {
+            outbox.publish(Topics.POST, EventTypes.POST_LIKED, postId,
+                    new Events.PostLiked(postId, p.getAuthorId(), me));
+        }
+    }
+
+    @Transactional
+    public void unlike(String me, String postId) {
+        visible(me, postId);
+        if (likes.deleteByPostIdAndUserId(postId, me) > 0) {
+            posts.decLikes(postId);
+        }
+    }
+
+    @Transactional
+    public PostDtos.CommentView comment(String me, String postId, String text) {
+        String clean = CommentText.normalize(text);
+        if (clean.isEmpty()) {
+            throw ApiException.badRequest("COMMENT_EMPTY", "Bình luận không được để trống");
+        }
+        if (clean.codePointCount(0, clean.length()) > CommentText.MAX_LENGTH) {
+            throw ApiException.badRequest("COMMENT_TOO_LONG", "Bình luận tối đa " + CommentText.MAX_LENGTH + " ký tự");
+        }
+        Post p = visible(me, postId);
+        if (p.getStatus() != Post.Status.PUBLISHED) {
+            throw ApiException.notFound("Bài viết");
+        }
+        Comment c = comments.save(new Comment(postId, me, clean));
+        posts.incComments(postId);
+        if (!p.getAuthorId().equals(me)) {
+            outbox.publish(Topics.POST, EventTypes.POST_COMMENTED, postId,
+                    new Events.PostCommented(postId, p.getAuthorId(), me));
+        }
+        return commentView(c, users.profiles(Set.of(me)));
+    }
+
+    @Transactional(readOnly = true)
+    public PostDtos.CommentPage comments(String me, String postId, long afterId, int limit) {
+        visible(me, postId);
+        int size = Math.max(1, Math.min(limit, MAX_PAGE));
+        List<Comment> page = comments.findByPostIdAndIdGreaterThanOrderByIdAsc(postId, afterId, PageRequest.of(0, size));
+        Map<String, UserDirectory.Profile> profiles = users.profiles(
+                page.stream().map(Comment::getAuthorId).collect(Collectors.toSet()));
+        List<PostDtos.CommentView> items = page.stream().map(c -> commentView(c, profiles)).toList();
+        return new PostDtos.CommentPage(items, page.size() == size ? page.get(page.size() - 1).getId() : null);
+    }
+
+    @Transactional
+    public void deleteComment(String me, String postId, long commentId) {
+        Post p = visible(me, postId);
+        Comment c = comments.findById(commentId).filter(x -> x.getPostId().equals(postId))
+                .orElseThrow(() -> ApiException.notFound("Bình luận"));
+        if (!c.getAuthorId().equals(me) && !p.getAuthorId().equals(me)) {
+            throw ApiException.forbidden("Không có quyền xoá bình luận này");
+        }
+        comments.delete(c);
+        posts.decComments(postId);
+    }
+
     // ---------------- sự kiện từ media-service ----------------
 
     @Transactional
@@ -177,6 +273,23 @@ public class PostService {
         } else if (!state.ready()) {
             quota.refund(p.getAuthorId(), p.getCreatedAt());
         }
+    }
+
+    /** Xoá toàn bộ dữ liệu của người dùng đã xoá tài khoản (bài, like, bình luận của họ). */
+    @Transactional
+    public void onUserDeleted(String publicId) {
+        for (Post p : posts.findByAuthorId(publicId)) {
+            likes.deleteAllOfPost(p.getId());
+            comments.deleteAllOfPost(p.getId());
+            posts.delete(p);
+        }
+        for (Comment c : new ArrayList<>(comments.findByAuthorId(publicId))) {
+            posts.decComments(c.getPostId());
+            comments.delete(c);
+        }
+        likes.deleteAllOfUser(publicId);
+        mediaStates.deleteByOwnerId(publicId);
+        users.invalidateFriends(publicId);
     }
 
     // ---------------- nội bộ ----------------
@@ -230,5 +343,12 @@ public class PostService {
                 prof == null ? null : prof.avatar());
         return new PostDtos.PostView(p.getId(), author, p.getCaption(), p.getMediaId(), p.getStatus(),
                 p.getLikeCount(), p.getCommentCount(), liked.contains(p.getId()), p.getCreatedAt(), p.getPublishedAt());
+    }
+
+    private PostDtos.CommentView commentView(Comment c, Map<String, UserDirectory.Profile> profiles) {
+        UserDirectory.Profile prof = profiles.get(c.getAuthorId());
+        return new PostDtos.CommentView(c.getId(), new PostDtos.Author(c.getAuthorId(),
+                prof == null ? null : prof.alias(), prof == null ? null : prof.leadAnimal(),
+                prof == null ? null : prof.avatar()), c.getText(), c.getCreatedAt());
     }
 }
