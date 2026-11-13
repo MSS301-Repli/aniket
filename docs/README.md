@@ -25,7 +25,7 @@ Mỗi service có một file trong [`services/`](services/): trách nhiệm, end
 | chat-service | 8105 | COM | [services/chat.md](services/chat.md) |
 | billing-service | 8106 | COM | [services/billing.md](services/billing.md) |
 
-Hạ tầng: api-gateway `8080`, config-server `8888`, eureka-server `8761`.
+Hạ tầng: [api-gateway](services/gateway.md) `8080`, config-server `8888`, eureka-server `8761`.
 
 ## Nền tảng (PLT)
 
