@@ -1,0 +1,76 @@
+# Cấu hình TĨNH của Traefik v3 (đổi cần khởi động lại). Router theo từng service nằm ở label trong docker-compose.yml,
+# còn middleware dùng chung và TLS nằm trong dynamic/ (tự nạp lại khi sửa file).
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+log:
+  level: INFO
+
+accessLog:
+  format: json
+  # Chỉ ghi lỗi và request chậm để log không phình ra; bỏ filters nếu cần ghi mọi request.
+  filters:
+    statusCodes: ["400-599"]
+    minDuration: 1s
+  fields:
+    headers:
+      defaultMode: drop        # không bao giờ ghi header (có Authorization, X-Public-Id)
+    names:
+      ClientHost: keep
+
+entryPoints:
+  web:
+    address: ":80"
+  websecure:
+    address: ":443"
+    http:
+      # Mọi router gắn vào entrypoint này tự bật TLS (router gắn cả web lẫn websecure thì chỉ HTTPS trên websecure).
+      # Chứng chỉ lấy từ dynamic/tls.yml; không có thì Traefik tự tạo chứng chỉ mặc định (tự ký).
+      # Header bảo mật gắn theo từng router (label) vì API và giao diện web cần CSP khác nhau.
+      tls: {}
+  traefik:
+    address: ":8080"           # dashboard + /ping + /metrics; compose chỉ publish ra 127.0.0.1
+
+api:
+  dashboard: true
+  insecure: true               # phục vụ dashboard trên entrypoint "traefik" (không public ra ngoài host)
+
+ping:
+  entryPoint: traefik
+
+metrics:
+  prometheus:
+    entryPoint: traefik
+
+tracing:
+  otlp:
+    http:
+      endpoint: http://tempo:4318/v1/traces
+
+providers:
+  docker:
+    exposedByDefault: false    # chỉ service có label traefik.enable=true mới được public
+    network: animal-net
+    watch: true
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+# ---- TLS thật bằng Let's Encrypt (production). Bỏ comment, đổi email, và thêm
+#      "traefik.http.routers.<tên>-secure.tls.certresolver=letsencrypt" vào label của router. ----
+# certificatesResolvers:
+#   letsencrypt:
+#     acme:
+#       email: ops@example.com
+#       storage: /letsencrypt/acme.json
+#       httpChallenge:
+#         entryPoint: web
+# Production cũng nên: đổi entrypoint web thành redirect sang websecure:
+#   web:
+#     address: ":80"
+#     http:
+#       redirections:
+#         entryPoint:
+#           to: websecure
+#           scheme: https
