@@ -1,0 +1,52 @@
+{
+  "properties": [
+    {
+      "name": "animal.internal-token",
+      "type": "java.lang.String",
+      "description": "Khoá X-Internal-Token cho /internal/**. Profile prod: bắt buộc, ≥ 32 ký tự, khác khoá dev; profile khác thiếu thì dùng 'dev-internal-token'."
+    },
+    {
+      "name": "animal.security.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Bật kiểm tra JWT. false: mở mọi endpoint trừ /internal/** (chỉ dùng cho test/dev)."
+    },
+    {
+      "name": "animal.security.public-paths",
+      "type": "java.lang.String[]",
+      "description": "Đường dẫn không cần JWT, phân tách bằng dấu phẩy (ví dụ /ws/**)."
+    },
+    {
+      "name": "animal.security.cors.allowed-origins",
+      "type": "java.lang.String[]",
+      "description": "Origin (hoặc pattern) được gọi trực tiếp tới service. Trống = tắt CORS."
+    },
+    {
+      "name": "animal.kv.type",
+      "type": "java.lang.String",
+      "defaultValue": "redis",
+      "description": "Cài đặt KeyValueStore: redis (cần spring-boot-starter-data-redis) hoặc memory (test, dev không có Redis)."
+    },
+    {
+      "name": "animal.resilience.timeout",
+      "type": "java.time.Duration",
+      "defaultValue": "2s",
+      "description": "Timeout mặc định cho lời gọi qua CircuitBreakerFactory."
+    },
+    {
+      "name": "animal.resilience.open-wait",
+      "type": "java.time.Duration",
+      "defaultValue": "10s",
+      "description": "Thời gian mạch ở trạng thái mở trước khi thử lại (half-open)."
+    }
+  ],
+  "hints": [
+    {
+      "name": "animal.kv.type",
+      "values": [
+        { "value": "redis", "description": "Redis qua StringRedisTemplate." },
+        { "value": "memory", "description": "Bộ nhớ trong tiến trình, mất khi khởi động lại." }
+      ]
+    }
+  ]
+}

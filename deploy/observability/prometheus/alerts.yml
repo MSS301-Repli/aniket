@@ -1,0 +1,90 @@
+groups:
+  - name: availability
+    rules:
+      - alert: ServiceDown
+        expr: up{job!~"keycloak|traefik"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "{{ $labels.job }} không phản hồi"
+          description: "Prometheus không scrape được {{ $labels.instance }} trong 2 phút."
+
+  - name: api
+    rules:
+      - alert: High5xxRate
+        expr: |
+          sum by (job) (rate(http_server_requests_seconds_count{status=~"5.."}[5m]))
+            / sum by (job) (rate(http_server_requests_seconds_count[5m])) > 0.05
+          and sum by (job) (rate(http_server_requests_seconds_count[5m])) > 0.2
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $labels.job }}: hơn 5% request trả lỗi 5xx"
+          description: "Tỉ lệ 5xx {{ $value | humanizePercentage }} trong 5 phút."
+
+      - alert: HighLatencyP95
+        # Cần bật percentiles-histogram cho http.server.requests (compose đã bật qua biến môi trường).
+        expr: |
+          histogram_quantile(0.95, sum by (job, le) (rate(http_server_requests_seconds_bucket{uri!~"/actuator.*"}[5m]))) > 1.5
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $labels.job }}: p95 độ trễ vượt 1,5 giây"
+          description: "p95 = {{ $value | humanizeDuration }}."
+
+  - name: resilience
+    rules:
+      - alert: CircuitBreakerOpen
+        # Metric của Resilience4j (resilience4j_circuitbreaker_state). Lưu ý: chỉ có khi thư viện Micrometer của Resilience4j
+        # được đăng ký; nếu rỗng, cảnh báo này sẽ không bao giờ kích hoạt (không phải lỗi).
+        expr: max by (job, name) (resilience4j_circuitbreaker_state{state="open"}) == 1
+        for: 1m
+        labels: { severity: warning }
+        annotations:
+          summary: "Circuit breaker '{{ $labels.name }}' của {{ $labels.job }} đang mở"
+          description: "Các lời gọi tới dịch vụ phía sau đang bị ngắt; xem log để biết nguyên nhân."
+
+  - name: kafka
+    rules:
+      - alert: KafkaConsumerLagHigh
+        expr: sum by (consumergroup, topic) (kafka_consumergroup_lag) > 1000
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Consumer group {{ $labels.consumergroup }} chậm trên topic {{ $labels.topic }}"
+          description: "Lag = {{ $value }} message trong hơn 10 phút."
+
+  - name: jvm
+    rules:
+      - alert: JvmHeapNearLimit
+        expr: sum by (job, instance) (jvm_memory_used_bytes{area="heap"}) / sum by (job, instance) (jvm_memory_max_bytes{area="heap"}) > 0.9
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $labels.job }}: heap JVM trên 90%"
+          description: "Có nguy cơ OutOfMemory; JVM được cấu hình tự thoát khi hết bộ nhớ để container khởi động lại."
+
+  - name: outbox
+    rules:
+      - alert: OutboxStuck
+        # Event trong bảng outbox chưa được relay đẩy lên Kafka quá 2 phút (relay dừng/Kafka lỗi).
+        expr: outbox_oldest_pending_age_seconds > 120
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "Outbox của {{ $labels.application }} bị kẹt"
+          description: "Event cũ nhất chưa đẩy đã {{ $value | humanizeDuration }}; xem runbook R5."
+      - alert: OutboxBacklogHigh
+        expr: outbox_pending > 1000
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Outbox của {{ $labels.application }} tồn {{ $value }} event"
+      - alert: OutboxPoisonEvent
+        # Relay đánh dấu FAILED sau animal.outbox.relay.max-attempts lỗi vĩnh viễn: event không bao giờ được giao.
+        expr: outbox_failed > 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "{{ $labels.application }} có {{ $value }} event outbox FAILED"
+          description: "Event bị loại khỏi hàng đợi vì lỗi không thử lại được (record quá lớn, topic sai...). Xem last_error và cách đẩy lại trong docs/outbox.md."
