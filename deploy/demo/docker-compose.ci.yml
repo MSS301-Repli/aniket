@@ -1,0 +1,41 @@
+# Overlay thứ ba (sau docker-compose.yml và docker-compose.demo.yml) do deploy-release.sh dùng:
+# image dựng từ JAR đã build sẵn (Dockerfile.runtime) và gắn tag bất biến DEPLOY_TAG = id của release.
+# Cấu hình dùng chung (.env, secrets, traefik) nằm ngoài thư mục release, dưới DEPLOY_ROOT.
+x-runtime-build: &runtime-build
+  dockerfile: deploy/docker/Dockerfile.runtime
+
+services:
+  eureka-server:
+    image: animal-locket/eureka-server:${DEPLOY_TAG:?Missing DEPLOY_TAG}
+    build: *runtime-build
+  config-server:
+    image: animal-locket/config-server:${DEPLOY_TAG}
+    build: *runtime-build
+  api-gateway:
+    image: animal-locket/api-gateway:${DEPLOY_TAG}
+    build: *runtime-build
+  user-service:
+    image: animal-locket/user-service:${DEPLOY_TAG}
+    build: *runtime-build
+  media-service:
+    image: animal-locket/media-service:${DEPLOY_TAG}
+    build: *runtime-build
+  post-service:
+    image: animal-locket/post-service:${DEPLOY_TAG}
+    build: *runtime-build
+  notification-service:
+    image: animal-locket/notification-service:${DEPLOY_TAG}
+    build: *runtime-build
+    volumes:
+      - ${DEPLOY_ROOT:-/opt/animal-locket}/deploy/secrets:/secrets:ro
+  discovery-service:
+    image: animal-locket/discovery-service:${DEPLOY_TAG}
+    build: *runtime-build
+  chat-service:
+    image: animal-locket/chat-service:${DEPLOY_TAG}
+    build: *runtime-build
+  billing-service:
+    image: animal-locket/billing-service:${DEPLOY_TAG}
+    build: *runtime-build
+    volumes:
+      - ${DEPLOY_ROOT:-/opt/animal-locket}/deploy/secrets:/secrets:ro
