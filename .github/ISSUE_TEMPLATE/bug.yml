@@ -1,0 +1,37 @@
+name: Báo lỗi
+description: Hành vi sai so với tài liệu hoặc tiêu chí chấp nhận
+title: "fix: "
+labels: ["bug"]
+body:
+  - type: input
+    id: area
+    attributes:
+      label: Service / module
+      placeholder: user-service, api-gateway, mobile, ...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Các bước tái hiện
+      description: Request/thao tác cụ thể. Không dán token, mật khẩu, dữ liệu cá nhân.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Kết quả mong đợi
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Kết quả thực tế
+      description: Kèm mã lỗi (`code` trong problem+json), log ngắn gọn nếu có.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit / môi trường
+      placeholder: "dev@abc1234, docker compose local"
