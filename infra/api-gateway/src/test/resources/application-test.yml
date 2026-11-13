@@ -1,0 +1,14 @@
+# Profile cho test: không cần Config Server, Eureka, Redis hay Keycloak.
+spring:
+  cloud:
+    config:
+      enabled: false
+eureka:
+  client:
+    enabled: false
+animal:
+  internal-token: test-token
+management:
+  health:
+    redis:
+      enabled: false

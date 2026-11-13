@@ -1,0 +1,10 @@
+animal:
+  push:
+    # Trống = chỉ ghi log, không gửi push thật.
+    fcm:
+      credentials-file: ${FCM_CREDENTIALS_FILE:}
+    max-attempts: 3
+    backoff-ms: 500
+  notification:
+    default-locale: vi
+    fanout-batch-size: 200
