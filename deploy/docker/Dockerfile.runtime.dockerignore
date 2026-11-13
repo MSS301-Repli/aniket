@@ -1,0 +1,10 @@
+# BuildKit đọc file này thay cho .dockerignore ở gốc: chỉ gửi JAR đã kiểm chứng, không bao giờ gửi .env hay credential.
+**
+!infra/
+!infra/*/
+!infra/*/target/
+!infra/*/target/*-SNAPSHOT.jar
+!services/
+!services/*/
+!services/*/target/
+!services/*/target/*-SNAPSHOT.jar
