@@ -1,0 +1,86 @@
+server:
+  port: 8105
+
+spring:
+  application:
+    name: chat-service
+  config:
+    import: "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
+  cloud:
+    config:
+      username: ${CONFIG_USER:config}
+      password: ${CONFIG_PASSWORD:config-dev-password}
+      fail-fast: false
+  data:
+    mongodb:
+      uri: ${MONGO_URI:mongodb://localhost:27017/chat_db}
+      auto-index-creation: true
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_JWK_URI:http://localhost:8081/realms/animal-locket/protocol/openid-connect/certs}
+
+animal:
+  security:
+    enabled: true
+  chat:
+    max-messages-per-10s: 20
+    # Loại tin được gửi mới, ngăn cách bằng dấu phẩy (TEXT, IMAGE, GLYPH). Mặc định chỉ ký hiệu.
+    allowed-types: ${CHAT_ALLOWED_TYPES:GLYPH}
+    glyph:
+      # false = rollback: tắt tạo/archive/gửi glyph, vẫn đọc được lịch sử và từ điển.
+      write-enabled: ${GLYPH_WRITE_ENABLED:true}
+      # Khớp bảng màu của mobile (glyph_composer_panel.dart).
+      palette: "#818CF8,#34D399,#FBBF24,#F472B6,#38BDF8,#FB923C,#C084FC"
+      max-active: 100
+      max-creates-per-day: 20
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 2s
+  # Bulkhead riêng cho chat để lỗi ở service khác không làm cạn thread của WebSocket.
+  bulkhead:
+    instances:
+      chat:
+        max-concurrent-calls: 50
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  tracing:
+    sampling:
+      probability: ${TRACE_SAMPLING:1.0}
+  otlp:
+    tracing:
+      endpoint: ${OTLP_TRACING_ENDPOINT:http://localhost:4318/v1/traces}
