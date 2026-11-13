@@ -1,0 +1,183 @@
+# Overlay cho máy chủ demo (một VM): DB tự chạy trong compose thay cho Aiven/Supabase/Atlas, HTTPS Let's Encrypt,
+# giới hạn RAM, Spring profile prod. Ảnh vẫn ở Cloudflare R2 (biến R2_* trong .env).
+# Dùng:  docker compose -f docker-compose.yml -f deploy/demo/docker-compose.demo.yml ...   (xem docs/deploy-demo.md)
+
+x-java-prod-env: &java-prod-env
+  # prod: app từ chối khởi động nếu INTERNAL_TOKEN trống, < 32 ký tự hoặc là giá trị dev.
+  SPRING_PROFILES_ACTIVE: prod
+  ANIMAL_INTERNAL_TOKEN: ${INTERNAL_TOKEN:?Missing INTERNAL_TOKEN}
+  JAVA_OPTS: ${DEMO_JAVA_OPTS:--Xms64m -Xmx320m -XX:+ExitOnOutOfMemoryError}
+
+services:
+  mysql:
+    image: mysql:8.4
+    profiles: [core]
+    restart: unless-stopped
+    networks: [animal-net]
+    command:
+      - --innodb-buffer-pool-size=256M
+      - --max-connections=80
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Missing MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: user_db
+      MYSQL_USER: animal
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Missing MYSQL_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./deploy/demo/mysql-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    mem_limit: 768m
+
+  postgres:
+    image: postgres:16-alpine
+    profiles: [core]
+    restart: unless-stopped
+    networks: [animal-net]
+    environment:
+      POSTGRES_DB: billing_db
+      POSTGRES_USER: animal
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Missing POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./deploy/demo/postgres-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U animal -d billing_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    mem_limit: 384m
+
+  mongo:
+    image: mongo:7
+    profiles: [core]
+    restart: unless-stopped
+    networks: [animal-net]
+    command: ["mongod", "--wiredTigerCacheSizeGB", "0.25"]
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    mem_limit: 512m
+
+  kafka:
+    environment:
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
+    mem_limit: 768m
+
+  redis:
+    mem_limit: 192m
+
+  keycloak:
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak_db
+      KC_DB_USERNAME: animal
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KC_HOSTNAME: https://auth.${PUBLIC_DOMAIN:?Missing PUBLIC_DOMAIN}
+      JAVA_OPTS_KC_HEAP: -Xms128m -Xmx512m
+    labels:
+      - "traefik.http.routers.auth.entrypoints=websecure"
+      - "traefik.http.routers.auth.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.auth-admin.entrypoints=websecure"
+      - "traefik.http.routers.auth-admin.tls.certresolver=letsencrypt"
+    mem_limit: 768m
+
+  traefik:
+    volumes:
+      - ./deploy/demo/traefik.demo.yml:/etc/traefik/traefik.yml:ro
+      - letsencrypt-data:/letsencrypt
+
+  eureka-server:
+    environment: *java-prod-env
+    mem_limit: 448m
+
+  config-server:
+    environment: *java-prod-env
+    mem_limit: 448m
+
+  api-gateway:
+    environment: *java-prod-env
+    labels:
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.pay.entrypoints=websecure"
+      - "traefik.http.routers.pay.tls.certresolver=letsencrypt"
+    mem_limit: 448m
+
+  user-service:
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      <<: *java-prod-env
+      DB_URL: jdbc:mysql://mysql:3306/user_db?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=utf8
+      DB_USER: animal
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+    mem_limit: 448m
+
+  media-service:
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      <<: *java-prod-env
+      DB_URL: jdbc:mysql://mysql:3306/media_db?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=utf8
+      DB_USER: animal
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+    mem_limit: 448m
+
+  post-service:
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      <<: *java-prod-env
+      DB_URL: jdbc:mysql://mysql:3306/post_db?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=utf8
+      DB_USER: animal
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+    mem_limit: 448m
+
+  notification-service:
+    environment: *java-prod-env
+    mem_limit: 448m
+
+  discovery-service:
+    environment: *java-prod-env
+    mem_limit: 448m
+
+  chat-service:
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      <<: *java-prod-env
+      MONGO_URI: mongodb://mongo:27017/chat_db
+    mem_limit: 448m
+
+  billing-service:
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *java-prod-env
+      DB_URL: jdbc:postgresql://postgres:5432/billing_db
+      DB_USER: animal
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      PAYPAL_RETURN_BASE_URL: ${PAYPAL_RETURN_BASE_URL:-https://api.${PUBLIC_DOMAIN}}
+    mem_limit: 448m
+
+volumes:
+  mysql-data:
+  postgres-data:
+  mongo-data:
+  letsencrypt-data:

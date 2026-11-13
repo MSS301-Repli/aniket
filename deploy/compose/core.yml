@@ -1,0 +1,81 @@
+# CORE: Redis + Kafka (KRaft, một node) + kafka-init tạo topic. Được include từ docker-compose.yml ở gốc repo.
+# Mạng animal-net khai báo giống hệt nhau ở mọi fragment (include chấp nhận định nghĩa trùng nếu giống nhau).
+
+services:
+  redis:
+    image: redis:7-alpine
+    profiles: [core]
+    restart: unless-stopped
+    networks: [animal-net]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Thiếu REDIS_PASSWORD, hãy sao chép .env.example thành .env}
+    # noeviction: Redis giữ hạn mức, vị trí, bản sao quyền lợi; thà báo lỗi còn hơn lặng lẽ xoá dữ liệu.
+    command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_PASSWORD\" --appendonly yes --maxmemory-policy noeviction"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  kafka:
+    image: apache/kafka:3.8.0
+    profiles: [core]
+    restart: unless-stopped
+    networks: [animal-net]
+    environment:
+      # Id cụm KRaft cố định (không phải bí mật); đổi sẽ không đọc được dữ liệu trong volume cũ.
+      CLUSTER_ID: "4L6g3nShT-eMCtK--X86sw"
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"   # topic được tạo tường minh ở kafka-init, tránh tạo nhầm do gõ sai tên
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_LOG_RETENTION_HOURS: "168"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+
+  kafka-init:
+    image: apache/kafka:3.8.0
+    profiles: [core]
+    restart: "no"
+    networks: [animal-net]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    # Mỗi topic có một topic dead-letter "<topic>.dlq" (consumer đẩy message lỗi vào đó), giữ 30 ngày để kịp điều tra.
+    command:
+      - |
+        set -eu
+        create() { /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic "$$1" --partitions 3 --replication-factor 1 "$${@:2}"; }
+        for t in user.events friend.events media.events media.results post.events chat.events billing.events; do
+          create "$$t"
+          create "$$t.dlq" --config retention.ms=2592000000
+        done
+        echo "kafka-init: danh sách topic"
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list
+
+networks:
+  animal-net:
+    name: animal-net
+
+volumes:
+  redis-data:
+  kafka-data:

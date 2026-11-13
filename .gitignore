@@ -1,0 +1,63 @@
+# ---- Build output ----
+target/
+build/
+*.class
+*.jar
+!**/src/test/resources/**/*.jar
+!**/gradle/wrapper/gradle-wrapper.jar
+
+# ---- Flutter / Dart (bổ sung cho mobile/.gitignore) ----
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+# l10n do `flutter gen-l10n` sinh từ lib/l10n/*.arb (pubspec: generate: true)
+mobile/lib/l10n/generated/
+**/*.g.dart
+**/*.freezed.dart
+
+# ---- Node / Python tooling ----
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# ---- Bí mật và cấu hình cục bộ: KHÔNG commit ----
+.env
+.env.*
+!.env.example
+deploy/secrets/*
+!deploy/secrets/.gitkeep
+*.p8
+*.p12
+*.pem
+*.key
+*.jks
+*.keystore
+key.properties
+*firebase*adminsdk*.json
+fcm*.json
+google-services.json
+GoogleService-Info.plist
+
+# ---- IDE / hệ điều hành ----
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+# Eclipse/STS: m2e sinh lại từ pom.xml, chứa đường dẫn tuyệt đối từng máy.
+.project
+.classpath
+.factorypath
+.settings/
+.apt_generated/
+.DS_Store
+Thumbs.db
+
+# ---- Dữ liệu chạy cục bộ ----
+*.log
+/tmp/
+.playwright-mcp/
+.superpowers/
+.impeccable/

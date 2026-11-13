@@ -1,0 +1,15 @@
+# BuildKit đọc file này thay cho .dockerignore ở gốc khi build bằng Dockerfile.java.
+**/target
+**/.git
+**/.idea
+**/.vscode
+**/*.iml
+docs
+mobile
+postman
+deploy
+.env
+.env.*
+**/node_modules
+**/.venv
+**/__pycache__
