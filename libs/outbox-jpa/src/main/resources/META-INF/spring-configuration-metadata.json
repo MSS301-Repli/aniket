@@ -1,0 +1,40 @@
+{
+  "properties": [
+    {
+      "name": "animal.outbox.relay.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Bật OutboxRelay (cần KafkaTemplate). Tắt trong test."
+    },
+    {
+      "name": "animal.outbox.relay.interval-ms",
+      "type": "java.lang.Long",
+      "defaultValue": 500,
+      "description": "Khoảng nghỉ giữa hai lần relay đọc outbox (ms)."
+    },
+    {
+      "name": "animal.outbox.relay.max-attempts",
+      "type": "java.lang.Integer",
+      "defaultValue": 5,
+      "description": "Số lần lỗi vĩnh viễn trước khi event bị đánh dấu FAILED (poison). Lỗi tạm thời không tính."
+    },
+    {
+      "name": "animal.outbox.cleanup.interval-ms",
+      "type": "java.lang.Long",
+      "defaultValue": 3600000,
+      "description": "Chu kỳ dọn event đã đẩy quá 1 ngày (ms)."
+    },
+    {
+      "name": "animal.outbox.processed-retention",
+      "type": "java.time.Duration",
+      "defaultValue": "7d",
+      "description": "Thời gian giữ dấu vết processed_events. Phải dài hơn thời gian một event có thể bị giao lại."
+    },
+    {
+      "name": "animal.outbox.processed-cleanup.interval-ms",
+      "type": "java.lang.Long",
+      "defaultValue": 3600000,
+      "description": "Chu kỳ dọn processed_events (ms)."
+    }
+  ]
+}

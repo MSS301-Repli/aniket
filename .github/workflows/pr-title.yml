@@ -1,0 +1,31 @@
+name: PR title
+
+# Squash merge lấy tiêu đề PR làm commit message trên dev, nên tiêu đề phải theo Conventional Commits.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+jobs:
+  conventional-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Kiểm tra tiêu đề
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # <type>(<scope>)!: <mô tả>  — scope và ! tùy chọn, tổng ≤ 100 ký tự.
+          pattern='^(feat|fix|refactor|test|docs|chore|ci|build|perf|style|revert)(\([a-z0-9._/-]+\))?!?: [^ ].*$'
+          if [[ ! "$TITLE" =~ $pattern ]]; then
+            echo "::error::Tiêu đề PR phải theo Conventional Commits, ví dụ 'feat(user): add alias cooldown'. Hiện tại: '$TITLE'"
+            exit 1
+          fi
+          if (( ${#TITLE} > 100 )); then
+            echo "::error::Tiêu đề PR dài ${#TITLE} ký tự (tối đa 100)."
+            exit 1
+          fi
+          echo "OK: $TITLE"
