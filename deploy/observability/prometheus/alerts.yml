@@ -80,3 +80,11 @@ groups:
         labels: { severity: warning }
         annotations:
           summary: "Outbox của {{ $labels.application }} tồn {{ $value }} event"
+      - alert: OutboxPoisonEvent
+        # Relay đánh dấu FAILED sau animal.outbox.relay.max-attempts lỗi vĩnh viễn: event không bao giờ được giao.
+        expr: outbox_failed > 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "{{ $labels.application }} có {{ $value }} event outbox FAILED"
+          description: "Event bị loại khỏi hàng đợi vì lỗi không thử lại được (record quá lớn, topic sai...). Xem last_error và cách đẩy lại trong docs/outbox.md."

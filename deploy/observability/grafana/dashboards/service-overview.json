@@ -1016,6 +1016,64 @@
           "refId": "A"
         }
       ]
+    },
+    {
+      "id": 23,
+      "type": "stat",
+      "title": "Outbox: event FAILED (poison)",
+      "description": "Event relay đã bỏ qua sau nhiều lần lỗi vĩnh viễn. Khác 0 là cần xử lý thủ công (docs/outbox.md).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 56,
+        "w": 24,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (application) (outbox_failed)",
+          "legendFormat": "{{application}}",
+          "refId": "A"
+        }
+      ]
     }
   ]
 }
