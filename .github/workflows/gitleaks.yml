@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   gitleaks:
     runs-on: ubuntu-24.04
@@ -32,5 +36,6 @@ jobs:
           if [ -n "$RANGE" ]; then
             gitleaks git --redact --verbose --log-opts="$RANGE" .
           else
-            gitleaks git --redact --verbose .
+            # Push: chỉ lịch sử của commit đang build (mặc định gitleaks quét --all, kéo theo branch của người khác).
+            gitleaks git --redact --verbose --log-opts="HEAD" .
           fi
