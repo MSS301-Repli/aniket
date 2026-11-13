@@ -1,0 +1,45 @@
+# Unit test cho alert rules: docker run --rm -v "$PWD/deploy/observability/prometheus:/etc/prometheus" \
+#   --entrypoint promtool prom/prometheus:v2.55.1 test rules /etc/prometheus/alerts.test.yml
+rule_files:
+  - alerts.yml
+
+evaluation_interval: 30s
+
+tests:
+  - name: outbox kẹt quá 2 phút thì cảnh báo critical
+    interval: 30s
+    input_series:
+      - series: 'outbox_oldest_pending_age_seconds{application="post-service"}'
+        values: '0 60 130 160 190 220 250 280 310 340'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: OutboxStuck
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: OutboxStuck
+        exp_alerts:
+          - exp_labels: { severity: critical, application: post-service }
+            exp_annotations:
+              summary: "Outbox của post-service bị kẹt"
+              description: "Event cũ nhất chưa đẩy đã 5m 10s; xem runbook R5."
+
+
+  - name: outbox bình thường không cảnh báo
+    interval: 30s
+    input_series:
+      - series: 'outbox_oldest_pending_age_seconds{application="user-service"}'
+        values: '0x20'
+      - series: 'outbox_pending{application="user-service"}'
+        values: '3x20'
+      - series: 'outbox_failed{application="user-service"}'
+        values: '0x20'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: OutboxStuck
+        exp_alerts: []
+      - eval_time: 9m
+        alertname: OutboxBacklogHigh
+        exp_alerts: []
+      - eval_time: 9m
+        alertname: OutboxPoisonEvent
+        exp_alerts: []
