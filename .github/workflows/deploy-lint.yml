@@ -1,0 +1,33 @@
+name: Deploy lint
+
+# Kiểm tra tĩnh cấu hình triển khai: compose (mọi profile + overlay demo/ci) và shell script.
+# Không cần Docker daemon: chỉ dùng `docker compose config`.
+on:
+  push:
+    branches: [dev, main]
+    paths: ["docker-compose.yml", "deploy/**", ".env.example", "infra/config-repo/**", ".github/workflows/deploy-lint.yml"]
+  pull_request:
+    branches: [dev, main]
+    paths: ["docker-compose.yml", "deploy/**", ".env.example", "infra/config-repo/**", ".github/workflows/deploy-lint.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  compose-and-scripts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compose config (core, app, obs) với .env.example
+        run: |
+          cp .env.example .env
+          COMPOSE_PROFILES=core,app,obs docker compose config --quiet
+          rm .env
+      - name: Demo overlay, generate-env và shellcheck
+        # shellcheck có sẵn trên runner ubuntu; validate-ci.sh chạy shellcheck khi có.
+        run: bash deploy/demo/validate-ci.sh

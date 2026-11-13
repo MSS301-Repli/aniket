@@ -1,0 +1,14 @@
+keycloak:
+  admin:
+    realm: animal-locket
+    client-id: ${KEYCLOAK_ADMIN_CLIENT_ID:user-service-admin}
+    # client-secret KHÔNG đặt ở đây: lấy từ KEYCLOAK_ADMIN_CLIENT_SECRET (trống = tắt xoá user trên Keycloak).
+
+animal:
+  limits:
+    invites-per-day:
+      free: 20
+      pro: 80
+    spin-interval:
+      free: 7d
+      pro: 1d
