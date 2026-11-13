@@ -1,0 +1,517 @@
+{
+  "@@locale": "vi",
+  "appName": "Animal Locket",
+  "photosTab": "Ảnh",
+  "feedTab": "Bảng tin",
+  "discoverTab": "Khám phá",
+  "chatTab": "Chat",
+  "profileTab": "Hồ sơ",
+  "retry": "Thử lại",
+  "genericError": "Có lỗi xảy ra. Vui lòng thử lại.",
+  "conversationTitle": "Trò chuyện",
+  "messagesLoadError": "Không thể tải tin nhắn.",
+  "messageSendFailed": "Tin chưa gửi được. Nội dung vẫn được giữ trên màn hình.",
+  "messageHint": "Nhắn tin…",
+  "sendMessage": "Gửi tin nhắn",
+  "sendPhoto": "Gửi ảnh",
+  "glyphModeOpen": "Mở chế độ nhắn bằng ký hiệu",
+  "glyphModeClose": "Đóng chế độ nhắn bằng ký hiệu",
+  "glyphDrawLabel": "Khung vẽ ký hiệu một nét",
+  "glyphDrawHint": "Vẽ một nét vào đây",
+  "glyphClearStroke": "Xóa nét vẽ",
+  "glyphRecognizing": "Đang nhận diện…",
+  "glyphNoMatch": "Chưa nhận ra ký hiệu. Bạn có thể vẽ lại hoặc tạo ký hiệu mới.",
+  "glyphAmbiguous": "Nét vẽ giống nhiều ký hiệu. Hãy chọn kết quả đúng.",
+  "glyphMatched": "Đã nhận diện {meaning}",
+  "@glyphMatched": {
+    "placeholders": {
+      "meaning": {
+        "type": "String"
+      }
+    }
+  },
+  "glyphAddToComposer": "Thêm vào câu",
+  "glyphQuickPick": "Chọn nhanh",
+  "glyphComposerEmpty": "Chưa có ký hiệu trong câu",
+  "glyphRemoveToken": "Xóa ký hiệu {meaning}",
+  "@glyphRemoveToken": {
+    "placeholders": {
+      "meaning": {
+        "type": "String"
+      }
+    }
+  },
+  "glyphClearComposer": "Xóa toàn bộ câu ký hiệu",
+  "glyphSend": "Gửi ký hiệu",
+  "glyphDictionary": "Từ điển ký hiệu",
+  "glyphCreate": "Tạo ký hiệu",
+  "glyphSystemTab": "Hệ thống",
+  "glyphPersonalTab": "Cá nhân",
+  "glyphConversationTab": "Hội thoại",
+  "glyphDictionaryEmpty": "Chưa có ký hiệu trong mục này.",
+  "glyphDictionaryError": "Không thể tải từ điển ký hiệu.",
+  "glyphMeaningLabel": "Ý nghĩa ký hiệu",
+  "glyphMeaningHint": "Ví dụ Đi cà phê không",
+  "glyphColorLabel": "Màu ký hiệu",
+  "glyphSave": "Lưu ký hiệu",
+  "glyphDelete": "Xóa ký hiệu",
+  "glyphCollisionWarning": "Nét vẽ quá giống một ký hiệu đã có.",
+  "glyphTooShort": "Hãy vẽ một nét rõ hơn.",
+  "glyphFeatureWaitingBackend": "Gửi ký hiệu đang chờ backend tương thích.",
+  "glyphShowMeaning": "Hiện nghĩa ký hiệu",
+  "glyphHideMeaning": "Ẩn nghĩa ký hiệu",
+  "glyphUnknownFallback": "Không tải được hình ký hiệu. Đang hiển thị nội dung thay thế.",
+  "retryMessage": "Gửi lại tin nhắn",
+  "conversationClosed": "Hội thoại đã đóng",
+  "languageSection": "Ngôn ngữ",
+  "cancel": "Huỷ",
+  "save": "Lưu",
+  "delete": "Xoá",
+  "close": "Đóng",
+  "continueLabel": "Tiếp tục",
+  "loadFailedRetry": "Không tải được · Thử lại",
+  "unknownAnimal": "Con vật",
+  "anonymousFriend": "Người bạn ẩn danh",
+  "rarityCommon": "Phổ thông",
+  "rarityRare": "Hiếm",
+  "rarityEpic": "Sử thi",
+  "rarityUnknown": "Chưa rõ",
+  "avatarSemantic": "Ảnh đại diện con vật",
+  "avatarSemanticNamed": "Ảnh đại diện: {name}",
+  "@avatarSemanticNamed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "animalLocked": "Con vật chưa mở khóa",
+  "errTooFast": "Thao tác quá nhanh. Vui lòng chờ rồi thử lại.",
+  "errServiceRetry": "Dịch vụ đang tạm gián đoạn. Vui lòng thử lại.",
+  "errProfileRequired": "Bạn cần hoàn tất hồ sơ trước khi tiếp tục.",
+  "errInvalidAlias": "Biệt danh cần từ 3 đến 20 ký tự hợp lệ.",
+  "errInvalidBirthdate": "Ngày sinh không hợp lệ.",
+  "errAliasCooldown": "Bạn chỉ có thể đổi biệt danh một lần mỗi 24 giờ.",
+  "errProRequired": "Tính năng này dành cho thành viên Pro.",
+  "errAnimalNotOwned": "Bạn chưa sở hữu con vật này.",
+  "errSpinCooldown": "Chưa đến lượt quay tiếp theo.",
+  "errNoAvatarSpin": "Bạn không còn lượt quay avatar nào.",
+  "errAvatarNotOwned": "Avatar này không có trong bộ sưu tập của bạn.",
+  "errAvatarPoolExhausted": "Tạm thời hết avatar mới để cấp. Lượt quay của bạn vẫn còn, hãy thử lại sau.",
+  "errAvatarBusy": "Hệ thống đang bận cấp avatar. Hãy thử lại.",
+  "errCollectionComplete": "Bạn đã hoàn thành bộ sưu tập.",
+  "errFileTooLarge": "Ảnh vượt quá giới hạn 10 MB.",
+  "errUnsupportedMediaType": "Định dạng ảnh chưa được hỗ trợ.",
+  "errUploadLimit": "Bạn đã đạt giới hạn tải ảnh trong giờ này.",
+  "errPhotoLimit": "Bạn đã đạt giới hạn đăng ảnh hôm nay.",
+  "errSwipeLimit": "Bạn đã hết lượt quẹt phải hôm nay.",
+  "errTooManySearches": "Bạn đang tìm quá nhanh. Hãy chờ một chút.",
+  "errNoBoost": "Bạn không còn Boost.",
+  "errInviteLimit": "Bạn đã đạt giới hạn lời mời hôm nay.",
+  "errReportLimit": "Bạn đã đạt giới hạn báo cáo hôm nay.",
+  "errChatRateLimit": "Bạn đang gửi tin quá nhanh.",
+  "errMediaNotReady": "Ảnh vẫn đang được xử lý.",
+  "errInvalidMessage": "Tin nhắn không hợp lệ.",
+  "errGlyphInvalidPoints": "Nét vẽ ký hiệu không hợp lệ.",
+  "errGlyphInvalidColor": "Màu ký hiệu không được hỗ trợ.",
+  "errGlyphDuplicate": "Ký hiệu này đã có trong hội thoại.",
+  "errGlyphLimit": "Hội thoại đã đạt giới hạn ký hiệu.",
+  "errGlyphNotFound": "Không tìm thấy ký hiệu này.",
+  "errGlyphNotActive": "Ký hiệu này không còn được sử dụng.",
+  "errGlyphNotOwner": "Bạn không thể xóa ký hiệu của người khác.",
+  "errGlyphSequenceTooLong": "Câu có quá nhiều ký hiệu.",
+  "errInvalidGlyphMessage": "Tin nhắn ký hiệu không hợp lệ.",
+  "errGlyphCreateRateLimit": "Bạn đang tạo ký hiệu quá nhanh.",
+  "errReceiptAlreadyUsed": "Giao dịch này đã được sử dụng.",
+  "errStoreUnavailable": "Cửa hàng đang tạm gián đoạn. Vui lòng thử lại.",
+  "errInvalidReceipt": "Không thể xác minh giao dịch.",
+  "errServiceUnavailable": "Dịch vụ đang tạm gián đoạn.",
+  "errIdentityUnavailable": "Không thể xác minh tài khoản lúc này.",
+  "signInHeadline": "Gần nhau hơn,\nvẫn là chính mình.",
+  "signInSubtitle": "Chia sẻ khoảnh khắc với bạn bè. Mỗi người là một con vật duy nhất, không lộ tên thật.",
+  "signInOpening": "Đang mở đăng nhập…",
+  "signInEmail": "Đăng nhập bằng email",
+  "signInFailed": "Đăng nhập thất bại: {error}",
+  "@signInFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "openDemoAccount": "Mở tài khoản demo",
+  "signInPrivacy": "Chúng tôi không hiển thị tên thật, email hay vị trí chính xác của bạn.",
+  "termsAgree": "Tôi đồng ý Điều khoản sử dụng và Chính sách riêng tư.",
+  "pickBirthdate": "Chọn ngày sinh",
+  "safetySetupTitle": "Thiết lập an toàn",
+  "birthdateSection": "Ngày sinh",
+  "birthAgeSpace": "Mỗi độ tuổi có một không gian phù hợp.",
+  "birthPrivacy": "Ngày sinh chỉ dùng để xác định nhóm tuổi. Thông tin này không xuất hiện trên hồ sơ.",
+  "dayLabel": "Ngày",
+  "monthLabel": "Tháng",
+  "yearLabel": "Năm",
+  "tapToPickBirthdate": "Chạm để chọn ngày sinh",
+  "aliasSuggestion1": "Mây Tinh Nghịch",
+  "aliasSuggestion2": "Cáo Mơ Màng",
+  "aliasSuggestion3": "Nắng Lấp Lánh",
+  "aliasSuggestion4": "Gấu Bồng Bềnh",
+  "revealSection": "Avatar của riêng bạn",
+  "photoDeveloping": "ảnh chưa rửa…",
+  "revealReady": "Sẵn sàng nhận con vật?",
+  "revealGreeting": "Chào {alias}",
+  "@revealGreeting": {
+    "placeholders": {
+      "alias": {
+        "type": "String"
+      }
+    }
+  },
+  "aliasNotRealName": "Biệt danh của bạn không cần là tên thật.",
+  "spinning": "Đang quay…",
+  "animalUniqueAvatar": "{animal} · không ai khác có avatar này",
+  "@animalUniqueAvatar": {
+    "placeholders": {
+      "animal": {
+        "type": "String"
+      }
+    }
+  },
+  "nicknameLabel": "Biệt danh",
+  "randomNickname": "Tạo biệt danh ngẫu nhiên",
+  "registering": "Đang đăng ký…",
+  "spinAvatar": "Quay avatar",
+  "enterApp": "Vào app",
+  "billingProPlan": "Gói Pro",
+  "billingProPlanDays": "Gói Pro {days} ngày",
+  "@billingProPlanDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "billingBoost": "Boost khám phá × {quantity}",
+  "@billingBoost": {
+    "placeholders": {
+      "quantity": {
+        "type": "int"
+      }
+    }
+  },
+  "billingPriorityInvite": "Lời mời ưu tiên × {quantity}",
+  "@billingPriorityInvite": {
+    "placeholders": {
+      "quantity": {
+        "type": "int"
+      }
+    }
+  },
+  "billingAnimalPack": "Gói con vật {item}",
+  "@billingAnimalPack": {
+    "placeholders": {
+      "item": {
+        "type": "String"
+      }
+    }
+  },
+  "billingDemoDisabled": "Chế độ demo không mua hàng được.",
+  "billingTransactionError": "Giao dịch gặp lỗi.",
+  "billingCheckoutOpened": "Đã mở trang thanh toán. Thanh toán xong quay lại app để cập nhật.",
+  "billingBrowserFailed": "Không mở được trình duyệt.",
+  "billingWebPaymentOff": "Thanh toán web chưa được bật trên máy chủ.",
+  "billingNotOnWeb": "Sản phẩm này chưa bán qua web.",
+  "billingSessionFailed": "Không tạo được phiên thanh toán.",
+  "billingUpdated": "Đã cập nhật giao dịch của bạn.",
+  "billingVerified": "Giao dịch đã được xác minh.",
+  "billingNotVerified": "Backend chưa xác minh giao dịch. Giao dịch chưa được hoàn tất.",
+  "billingCanceled": "Đã huỷ giao dịch.",
+  "proLoadFailed": "Không thể tải cửa hàng · Thử lại",
+  "proHeadline": "Nhiều cách kết nối hơn",
+  "proPerkBoost": "Boost khám phá",
+  "proPerkInvite": "Lời mời kết bạn ưu tiên",
+  "proMinorNotice": "Tài khoản dưới 18 tuổi không hiển thị ưu đãi.",
+  "proNoWebProducts": "Chưa có sản phẩm bán qua web.",
+  "proWebPaymentNote": "Thanh toán trên trang web của Animal Locket (VietQR/PayPal). Xong bấm \"Quay lại app\".",
+  "proViaStore": "Qua cửa hàng: {product} · {price}",
+  "@proViaStore": {
+    "placeholders": {
+      "product": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "proRestore": "Khôi phục giao dịch cửa hàng",
+  "proCurrentPro": "Bạn đang dùng Pro",
+  "proCurrentProUntil": "Bạn đang dùng Pro đến {date}",
+  "@proCurrentProUntil": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "proCurrentFree": "Bạn đang dùng gói Free",
+  "proWallet": "Boost: {boosts} · Lời mời ưu tiên: {invites}",
+  "@proWallet": {
+    "placeholders": {
+      "boosts": {
+        "type": "int"
+      },
+      "invites": {
+        "type": "int"
+      }
+    }
+  },
+  "newMoment": "Khoảnh khắc mới",
+  "flashMode": "Đổi chế độ đèn flash",
+  "pickFromGallery": "Chọn từ thư viện",
+  "flipCamera": "Lật camera",
+  "takePhoto": "Chụp ảnh",
+  "cameraPermission": "Cho phép camera để chụp khoảnh khắc.",
+  "allowCamera": "Cho phép camera",
+  "previewSendingFirst": "Đang gửi ảnh trước, đợi chút nhé.",
+  "previewTitle": "Xem trước",
+  "messageLabel": "Lời nhắn",
+  "messageHintFriends": "Viết gì đó cho bạn bè…",
+  "sendingPhoto": "Đang gửi ảnh trước…",
+  "sendToFriends": "Gửi cho bạn bè",
+  "retake": "Chụp lại",
+  "previewNote": "Ảnh được gửi cho toàn bộ bạn bè. Bản đầu chưa hỗ trợ chọn từng người nhận.",
+  "sendSending": "Đang gửi…",
+  "sendSent": "Đã gửi",
+  "sendRejected": "Ảnh không được chấp nhận",
+  "sendFailed": "Gửi lỗi, kiểm tra mạng",
+  "chatListTitle": "Trò chuyện",
+  "chatOnlyFriends": "Tin nhắn chỉ mở giữa bạn bè.",
+  "chatEmpty": "Chưa có cuộc trò chuyện nào.",
+  "chatStart": "Bắt đầu trò chuyện",
+  "chatRecent": "Tin nhắn gần đây",
+  "unreadCount": "{count} tin chưa đọc",
+  "@unreadCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "friendsLabel": "Bạn bè",
+  "swipesLeft": "Còn {count} lượt quẹt phải hôm nay",
+  "@swipesLeft": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "enableLocationHint": "Bật vị trí để tìm người ở gần. Hiện chỉ thấy người đang online.",
+  "enableLocation": "Bật vị trí",
+  "discoverSlow": "Dịch vụ đang chậm, bộ thẻ có thể chưa đầy đủ.",
+  "skip": "Bỏ qua",
+  "useBoost": "Dùng Boost",
+  "addFriend": "Kết bạn",
+  "friendsMade": "Đã thành bạn! Bạn có thể bắt đầu trò chuyện.",
+  "boostUsed": "Đã dùng 1 Boost.",
+  "online": "Đang online",
+  "anonymousAnimal": "Con vật ẩn danh",
+  "deckEmpty": "Hết thẻ mới rồi",
+  "reload": "Tải lại",
+  "findNewFriends": "Tìm người bạn mới",
+  "locationConsent": "Vị trí chỉ được xin khi bạn bật khám phá. Nếu từ chối, bạn vẫn có thể dùng chế độ online.",
+  "enableDiscovery": "Bật khám phá",
+  "discoverLoadFailedCode": "Không thể tải khám phá ({code}).",
+  "@discoverLoadFailedCode": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "discoverLoadFailed": "Không thể tải khám phá.",
+  "distUnder1km": "dưới 1 km",
+  "dist1to3km": "1–3 km",
+  "distUnder3km": "dưới 3 km",
+  "dist3to10km": "3–10 km",
+  "distOver10km": "trên 10 km",
+  "feedTitle": "Khoảnh khắc",
+  "feedLoadFailed": "Không thể tải feed. Vui lòng kiểm tra mạng.",
+  "feedEmpty": "Chưa có khoảnh khắc nào\nHãy chụp ảnh hoặc kết bạn để bắt đầu.",
+  "feedDegraded": "Một phần dịch vụ đang chậm. Feed có thể chưa đầy đủ.",
+  "unlike": "Bỏ thích",
+  "like": "Thích",
+  "timeJustNow": "Vừa xong",
+  "timeMinutesAgo": "{count} phút trước",
+  "@timeMinutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timeHoursAgo": "{count} giờ trước",
+  "@timeHoursAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timeDaysAgo": "{count} ngày trước",
+  "@timeDaysAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dayToday": "Hôm nay",
+  "dayYesterday": "Hôm qua",
+  "noPhotosYet": "Chưa có ảnh nào.",
+  "befriendToSee": "Kết bạn để xem ảnh của người này.",
+  "photosLoadFailed": "Không tải được ảnh · Thử lại",
+  "morePhotos": "Xem thêm ảnh",
+  "postProcessing": "Đang xử lý",
+  "postRejected": "Bị từ chối",
+  "postRejectedPhoto": "Ảnh bị từ chối",
+  "postProcessingPhoto": "Ảnh đang được xử lý",
+  "deletePhoto": "Xoá ảnh",
+  "deletePhotoQ": "Xoá ảnh này?",
+  "deletePhotoBody": "Bạn bè sẽ không còn thấy ảnh này nữa.",
+  "deletePhotoFailed": "Không xoá được ảnh. Thử lại sau.",
+  "friendsAndRequests": "Bạn bè và lời mời",
+  "tabFriends": "Bạn bè {count}",
+  "@tabFriends": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tabRequests": "Lời mời {count}",
+  "@tabRequests": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tabSent": "Đã gửi {count}",
+  "@tabSent": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noFriends": "Chưa có bạn bè.",
+  "offline": "Ngoại tuyến",
+  "viewProfile": "Xem hồ sơ",
+  "noIncoming": "Không có lời mời mới.",
+  "noOutgoing": "Bạn chưa gửi lời mời nào.",
+  "distanceHidden": "Không hiển thị khoảng cách để bảo vệ riêng tư",
+  "accept": "Chấp nhận",
+  "decline": "Từ chối",
+  "settings": "Cài đặt",
+  "changeNickname": "Đổi biệt danh",
+  "memberPro": "Thành viên Pro",
+  "memberFree": "Thành viên Free",
+  "ownedAvatars": "Avatar sở hữu",
+  "myPhotos": "Ảnh của tôi",
+  "noMyPhotos": "Bạn chưa đăng ảnh nào.",
+  "collection": "Bộ sưu tập",
+  "collectionNote": "Mỗi avatar chỉ thuộc về bạn, không ai khác có được.",
+  "collectionNoteMulti": "Chạm một avatar để dùng nó. Mỗi avatar chỉ thuộc về bạn.",
+  "spinAvatarButton": "Quay avatar ({count})",
+  "@spinAvatarButton": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "upgradePro": "Nâng cấp Pro",
+  "friendsCount": "Bạn bè ({count})",
+  "@friendsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "seeAll": "Xem tất cả",
+  "friendsLoadFailed": "Không tải được bạn bè · Thử lại",
+  "noFriendsYet": "Chưa có bạn bè nào.",
+  "findFriends": "Tìm bạn",
+  "openProfileOf": "Mở trang của {name}",
+  "@openProfileOf": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "profileLoadFailed": "Không thể tải hồ sơ.",
+  "photosOf": "Ảnh của {name}",
+  "@photosOf": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noPhotosOf": "{name} chưa đăng ảnh nào.",
+  "@noPhotosOf": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "anonymousProfile": "Hồ sơ ẩn danh",
+  "message": "Nhắn tin",
+  "unfriend": "Huỷ kết bạn",
+  "report": "Báo cáo",
+  "block": "Chặn",
+  "blockQ": "Chặn người này?",
+  "blockBody": "Hai người sẽ không thể tìm thấy hoặc nhắn tin cho nhau.",
+  "reportDetails": "Chi tiết",
+  "sendReport": "Gửi báo cáo",
+  "reportSent": "Đã gửi báo cáo.",
+  "settingsTitle": "Cài đặt và riêng tư",
+  "allowDiscovery": "Cho phép khám phá",
+  "discoveryOffNote": "Tắt để xoá vị trí và dừng xuất hiện trong bộ thẻ.",
+  "blockedSection": "Đã chặn",
+  "nobodyBlocked": "Chưa chặn ai.",
+  "unblock": "Bỏ chặn",
+  "signOut": "Đăng xuất",
+  "deleteAccount": "Xoá tài khoản",
+  "deleteAccountQ": "Xoá tài khoản?",
+  "deleteAccountBody": "Ảnh, tin nhắn và hồ sơ sẽ bị xoá. Thao tác này không thể hoàn tác.",
+  "keepAccount": "Giữ tài khoản",
+  "finalConfirm": "Xác nhận lần cuối",
+  "typeDeleteWord": "Nhập XOÁ để xác nhận",
+  "deleteWord": "XOÁ",
+  "deleteForever": "Xoá vĩnh viễn",
+  "themeSection": "Màu giao diện",
+  "themeShu": "Shu · Son đỏ",
+  "themeYuzu": "Yuzu · Vàng thanh yên",
+  "themeSakura": "Sakura · Hồng anh đào",
+  "themeSora": "Sora · Trời xanh",
+  "glyphSysAgree": "Đồng ý",
+  "glyphSysHurry": "Gấp nhé",
+  "glyphSysBusy": "Đang bận",
+  "glyphSysCoffee": "Đi cà phê không?",
+  "glyphSysHungry": "Đói bụng",
+  "glyphSysComing": "Đang tới",
+  "view": "Xem",
+  "unfriendQ": "Huỷ kết bạn với {name}?",
+  "@unfriendQ": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  }
+}

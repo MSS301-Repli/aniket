@@ -10,6 +10,7 @@
     </parent>
     <artifactId>billing-service</artifactId>
     <name>billing-service</name>
+    <description>Gói Pro, mua lẻ, thanh toán</description>
 
     <dependencies>
         <dependency>
