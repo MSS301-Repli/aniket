@@ -239,11 +239,11 @@ void main() {
         payload: const {
           'glyphIds': ['glyph-1'],
         },
-        attemptCount: 0,
+        attemptCount: 5,
         createdAt: DateTime.utc(2026, 1, 1),
       ),
     );
-    await local.failChat('client-backoff', attemptCount: 0, retryable: true);
+    await local.failChat('client-backoff', attemptCount: 5, retryable: true);
 
     expect(await local.pendingChat('account-a', 'conversation-1'), isEmpty);
     final row = (await cache.rawDatabase.query(
@@ -252,7 +252,7 @@ void main() {
       whereArgs: ['client-backoff'],
     )).single;
     expect(row['state'], 'FAILED');
-    expect(row['attempt_count'], 1);
+    expect(row['attempt_count'], 6);
     expect(row['next_attempt_at'], isNotNull);
     await cache.close();
   });
