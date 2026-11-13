@@ -19,6 +19,10 @@ tests:
         alertname: OutboxStuck
         exp_alerts:
           - exp_labels: { severity: critical, application: post-service }
+            exp_annotations:
+              summary: "Outbox của post-service bị kẹt"
+              description: "Event cũ nhất chưa đẩy đã 5m 10s; xem runbook R5."
+
 
   - name: outbox bình thường không cảnh báo
     interval: 30s
