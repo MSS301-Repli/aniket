@@ -1,0 +1,22 @@
+animal:
+  chat:
+    max-messages-per-10s: 20
+    # Loại tin được gửi mới (TEXT, IMAGE, GLYPH), ngăn cách bằng dấu phẩy.
+    allowed-types: ${CHAT_ALLOWED_TYPES:GLYPH}
+    glyph:
+      write-enabled: ${GLYPH_WRITE_ENABLED:true}
+      # Khớp bảng màu của mobile.
+      palette: "${GLYPH_PALETTE:#818CF8,#34D399,#FBBF24,#F472B6,#38BDF8,#FB923C,#C084FC}"
+      max-active: ${GLYPH_MAX_ACTIVE:100}
+      max-creates-per-day: ${GLYPH_MAX_CREATES_PER_DAY:20}
+
+resilience4j:
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 2s
+  # Bulkhead riêng để lỗi ở service khác không làm cạn thread của WebSocket.
+  bulkhead:
+    instances:
+      chat:
+        max-concurrent-calls: 50
