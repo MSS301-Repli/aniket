@@ -1,0 +1,48 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    jsonData:
+      timeInterval: 15s
+
+  - name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    jsonData:
+      # Log của Spring có dạng "... [tên-service,<traceId>,<spanId>] ..." (xem logging.pattern.level trong config-repo).
+      # Bắt traceId để nhảy từ dòng log sang trace trong Tempo. "$$" là cách viết "$" trong file provisioning.
+      derivedFields:
+        - name: TraceID
+          matcherRegex: '\[[\w-]+,([0-9a-f]{32}),[0-9a-f]{16}\]'
+          datasourceUid: tempo
+          url: '$${__value.raw}'
+          urlDisplayLabel: Xem trace
+
+  - name: Tempo
+    uid: tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    jsonData:
+      # Từ một span, nhảy sang log của đúng service trong khoảng thời gian đó, lọc theo traceId.
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: "-2m"
+        spanEndTimeShift: "2m"
+        filterByTraceID: false
+        filterBySpanID: false
+        customQuery: true
+        query: '{service="$${__span.tags.service.name}"} |= "$${__trace.traceId}"'
+      tracesToMetrics:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true
+      serviceMap:
+        datasourceUid: prometheus
