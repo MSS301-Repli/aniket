@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+    <title>Thanh toán · Animal Locket</title>
+    <style th:replace="~{pay/fragments :: style}"></style>
+</head>
+<body>
+<div class="stage">
+    <p class="brand" th:replace="~{pay/fragments :: brand}">Animal Locket</p>
+    <svg th:replace="~{pay/fragments :: scene('run')}"></svg>
+
+    <main class="card">
+        <h1>Xác nhận thanh toán</h1>
+
+        <p class="notice" th:if="${message != null}" th:text="${message}"></p>
+
+        <div class="summary">
+            <div class="tile">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2b1400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.2 5.6L20 11l-5.8 2.4L12 19l-2.2-5.6L4 11l5.8-2.4z"/></svg>
+            </div>
+            <span class="name" th:text="${productLabel}">Animal Locket Pro (30 ngày)</span>
+        </div>
+
+        <div class="methods" th:if="${paypalEnabled or payosEnabled}">
+            <h2>Chọn cách thanh toán</h2>
+
+            <form method="post" th:if="${paypalEnabled}" th:action="@{/pay/{t}/start(t=${token})}">
+                <button type="submit" class="btn btn-orange method">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2b1400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20"/></svg>
+                    <span class="label">
+                        <span>Thanh toán với PayPal</span>
+                        <span class="sub" th:text="${amount + ' ' + currency}">2.99 USD</span>
+                    </span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2b1400" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+                </button>
+            </form>
+
+            <form method="post" th:if="${payosEnabled}" th:action="@{/pay/{t}/payos(t=${token})}">
+                <button type="submit" class="btn btn-green method">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg>
+                    <span class="label">
+                        <span>Chuyển khoản VietQR</span>
+                        <span class="sub" th:text="${payosAmount}">79.000 ₫</span>
+                    </span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+                </button>
+            </form>
+        </div>
+
+        <p class="notice" th:if="${!paypalEnabled and !payosEnabled}">
+            Hiện chưa có phương thức thanh toán nào cho sản phẩm này.
+        </p>
+
+        <p class="fine">
+            Bạn sẽ được chuyển sang PayPal hoặc trang VietQR của payOS để thanh toán. Quyền lợi chỉ được cấp sau khi nhà cung cấp
+            xác nhận khoản thanh toán. Thuê bao mua qua web là trả trước theo kỳ và không tự gia hạn.
+        </p>
+    </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+    <title>Kết quả thanh toán · Animal Locket</title>
+    <style th:replace="~{pay/fragments :: style}"></style>
+</head>
+<body>
+<!-- Tâm trạng của cảnh nền theo trạng thái: COMPLETED -> done, HELD -> wait, còn lại -> oops. -->
+<div class="stage" th:with="mood=${status == 'COMPLETED' ? 'done' : (status == 'HELD' ? 'wait' : 'oops')}">
+    <p class="brand" th:replace="~{pay/fragments :: brand}">Animal Locket</p>
+    <svg th:replace="~{pay/fragments :: scene(${mood})}"></svg>
+
+    <main class="card">
+
+        <th:block th:if="${status == 'COMPLETED'}">
+            <div class="head">
+                <div class="badge ok">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+                </div>
+                <h1>Thanh toán thành công</h1>
+            </div>
+            <dl class="order">
+                <div>
+                    <dt>Sản phẩm</dt>
+                    <dd th:text="${productLabel}">Animal Locket Pro (30 ngày)</dd>
+                </div>
+                <div>
+                    <dt>Đã thanh toán</dt>
+                    <dd class="price" th:text="${provider == 'PAYOS' ? payosAmount : amount + ' ' + currency}">2.99 USD</dd>
+                </div>
+            </dl>
+            <p class="text">Quyền lợi đã được cập nhật cho tài khoản của bạn. Hãy quay lại ứng dụng.</p>
+            <a class="btn btn-green solo" th:if="${appReturnUrl != null and !appReturnUrl.isBlank()}"
+               th:href="${appReturnUrl + '?status=success'}">Quay lại ứng dụng</a>
+        </th:block>
+
+        <th:block th:if="${status == 'HELD'}">
+            <div class="head">
+                <div class="badge warn">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#9a4a0e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                </div>
+                <h1>Đang chờ xác nhận</h1>
+            </div>
+            <p class="text" th:text="${message}">Đang chờ nhà cung cấp xác nhận khoản thanh toán.</p>
+            <div class="dots" aria-hidden="true"><span></span><span></span><span></span></div>
+            <a class="btn btn-outline solo" th:href="${provider == 'PAYOS'} ? @{/pay/{t}/payos/return(t=${token})} : @{/pay/{t}/return(t=${token})}">Kiểm tra lại</a>
+        </th:block>
+
+        <th:block th:if="${status == 'EXPIRED' or status == 'NOT_FOUND'}">
+            <div class="head">
+                <div class="badge warn">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#9a4a0e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                </div>
+                <h1>Không thể tiếp tục</h1>
+            </div>
+            <p class="text" th:text="${message}">Liên kết không hợp lệ hoặc đã hết hạn.</p>
+            <a class="btn btn-orange solo" th:if="${appReturnUrl != null and !appReturnUrl.isBlank()}"
+               th:href="${appReturnUrl + '?status=retry'}">Quay lại ứng dụng</a>
+        </th:block>
+
+        <th:block th:if="${status == 'FAILED' or status == 'UNAVAILABLE'}">
+            <div class="head">
+                <div class="badge bad">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#b3262f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v6"/><path d="M12 17.01v.01"/><circle cx="12" cy="12" r="9"/></svg>
+                </div>
+                <h1>Chưa hoàn tất</h1>
+            </div>
+            <p class="text" th:text="${message}">Có lỗi xảy ra.</p>
+            <a class="btn btn-orange solo" th:if="${token != null and status == 'UNAVAILABLE'}"
+               th:href="${provider == 'PAYOS'} ? @{/pay/{t}/payos/return(t=${token})} : @{/pay/{t}/return(t=${token})}">Thử lại</a>
+        </th:block>
+    </main>
+</div>
+</body>
+</html>
