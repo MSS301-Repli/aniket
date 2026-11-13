@@ -1,0 +1,37 @@
+# Code owner theo mảng. Dòng khớp SAU CÙNG thắng, nên quy tắc chung đặt trước, cụ thể đặt sau.
+# Mảng: PLT = platform, IDN = identity, SOC = social, COM = commerce, MOB = mobile.
+
+# ---- PLT: mặc định cho mọi thứ không thuộc mảng khác (root, libs, infra, deploy, CI, postman, docs) ----
+*                                   @mercury1605
+
+# ---- IDN: user-service, media-service, avatar-lib ----
+/services/user-service/             @Tanvinhza223
+/services/media-service/            @Tanvinhza223
+/libs/avatar-lib/                   @Tanvinhza223
+/docs/services/user.md              @Tanvinhza223
+/docs/services/media.md             @Tanvinhza223
+
+# ---- SOC: post-service, discovery-service, notification-service ----
+/services/post-service/             @vtmoazz
+/services/discovery-service/        @vtmoazz
+/services/notification-service/     @vtmoazz
+/docs/services/post.md              @vtmoazz
+/docs/services/discovery.md         @vtmoazz
+/docs/services/notification.md      @vtmoazz
+
+# ---- COM: chat-service, billing-service ----
+/services/chat-service/             @v1etmanh
+/services/billing-service/          @v1etmanh
+/docs/services/chat.md              @v1etmanh
+/docs/services/billing.md           @v1etmanh
+
+# ---- MOB: app Flutter ----
+/mobile/                            @ducsucute2005
+
+# ---- File dùng chung: chỉ PLT duyệt (đặt cuối để thắng quy tắc mảng) ----
+/pom.xml                            @mercury1605
+/docker-compose.yml                 @mercury1605
+/.env.example                       @mercury1605
+/infra/config-repo/                 @mercury1605
+/libs/common/src/main/java/com/animallocket/common/event/Events.java  @mercury1605
+/.github/                           @mercury1605

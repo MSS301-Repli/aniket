@@ -1,0 +1,44 @@
+name: Tính năng / công việc
+description: Một đầu việc có phạm vi rõ ràng, làm trên một nhánh feature/<ID>-<slug>
+title: "[<ID>] "
+labels: ["type:feature"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Mục tiêu
+      description: Việc cần đạt được, viết một câu.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Phạm vi / file sở hữu
+      description: Thư mục được phép sửa. File dùng chung (root pom.xml, docker-compose.yml, infra/config-repo, Events.java, .env.example) chỉ PLT sửa.
+    validations:
+      required: true
+  - type: textarea
+    id: gate
+    attributes:
+      label: Gate / phụ thuộc
+      description: Issue hoặc gate phải merge vào dev trước.
+  - type: input
+    id: branch
+    attributes:
+      label: Nhánh
+      placeholder: feature/<ID>-<slug> tách từ dev
+  - type: textarea
+    id: done
+    attributes:
+      label: Tiêu chí hoàn thành
+      value: |
+        - [ ] Build được và test liên quan pass (`mvn -B verify` hoặc `flutter analyze && flutter test`)
+        - [ ] Có test cho logic mới (không dùng secret/credential thật)
+        - [ ] Không sửa file ngoài phạm vi sở hữu; không có file IDE/`.env`/generated trong PR
+        - [ ] Cập nhật tài liệu liên quan
+        - [ ] PR được review và CI xanh
+  - type: input
+    id: ref
+    attributes:
+      label: Tham khảo
+      description: File/thư mục tương ứng trong repo tham khảo animal_locket (nhánh master).
