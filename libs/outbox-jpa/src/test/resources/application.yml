@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: outbox-test
+  datasource:
+    url: jdbc:h2:mem:outbox;MODE=MySQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+  kafka:
+    bootstrap-servers: localhost:9092
+
+animal:
+  security:
+    enabled: false
+  outbox:
+    relay:
+      # Test tự gọi relay; tránh scheduler chạy song song với test.
+      enabled: false
