@@ -19,7 +19,7 @@ RUN --mount=type=cache,target=/root/.m2 \
     mvn -B -q -Dmaven.wagon.http.retryHandler.count=5 -Dmaven.wagon.httpconnectionManager.ttlSeconds=30 -Daether.connector.http.connectionMaxTtl=30 -pl "$MODULE_PATH" -am -DskipTests package
 
 ############################ Giai đoạn chạy ############################
-FROM eclipse-temurin:17-jre AS runtime
+FROM eclipse-temurin:24-jre AS runtime
 ARG MODULE_PATH
 ARG APP_PORT=8080
 ENV APP_PORT=${APP_PORT} \
