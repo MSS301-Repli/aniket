@@ -1,0 +1,64 @@
+server:
+  port: 8107
+
+spring:
+  application:
+    name: notification-service
+  config:
+    import: "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
+  cloud:
+    config:
+      username: ${CONFIG_USER:config}
+      password: ${CONFIG_PASSWORD:config-dev-password}
+      fail-fast: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: latest   # không phát lại thông báo cũ khi khởi động lần đầu
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_JWK_URI:http://localhost:8081/realms/animal-locket/protocol/openid-connect/certs}
+
+animal:
+  security:
+    enabled: true
+  push:
+    fcm:
+      credentials-file: ${FCM_CREDENTIALS_FILE:}
+    max-attempts: 3
+    backoff-ms: 500
+  notification:
+    default-locale: vi        # ngôn ngữ template thông báo (vi hoặc en)
+    fanout-batch-size: 200    # số thông báo mỗi tác vụ khi fan-out POST_PUBLISHED
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  tracing:
+    sampling:
+      probability: ${TRACE_SAMPLING:1.0}
+  otlp:
+    tracing:
+      endpoint: ${OTLP_TRACING_ENDPOINT:http://localhost:4318/v1/traces}

@@ -1,0 +1,27 @@
+server:
+  port: 8761
+
+spring:
+  application:
+    name: eureka-server
+  security:
+    user:
+      name: ${EUREKA_USER:eureka}
+      # Không có giá trị mặc định: thiếu EUREKA_PASSWORD thì không khởi động (fail fast).
+      password: ${EUREKA_PASSWORD}
+
+eureka:
+  instance:
+    hostname: ${EUREKA_HOST:localhost}
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+  server:
+    # Dev: không chờ đủ ngưỡng heartbeat mới cho phép gỡ instance chết.
+    enable-self-preservation: ${EUREKA_SELF_PRESERVATION:false}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
