@@ -1,0 +1,17 @@
+storage:
+  region: auto
+  bucket: ${R2_BUCKET:animal-photos}
+  # Khoá R2: chỉ lấy từ biến môi trường.
+  endpoint: ${R2_ENDPOINT}
+  access-key: ${R2_ACCESS_KEY}
+  secret-key: ${R2_SECRET_KEY}
+
+animal:
+  media:
+    max-bytes: 10485760
+
+resilience4j:
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 3s
