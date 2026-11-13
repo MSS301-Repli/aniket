@@ -3,6 +3,7 @@ package com.animallocket.common.web;
 import com.animallocket.common.Headers;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
@@ -60,6 +61,12 @@ class ApiExceptionHandlerTest {
         @GetMapping("/other-header")
         String otherHeader(@RequestHeader("X-Device") String device) {
             return device;
+        }
+
+        /** Không có @Validated ở class: Spring MVC 6.1 tự kiểm ràng buộc và ném HandlerMethodValidationException. */
+        @GetMapping("/sized")
+        String sized(@RequestParam @Size(max = 5) String q) {
+            return q;
         }
 
         @GetMapping("/dup")
@@ -133,6 +140,17 @@ class ApiExceptionHandlerTest {
         mvc.perform(get("/other-header"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
+    void builtInMethodValidationIsBadRequestNamingTheParameter() throws Exception {
+        mvc.perform(get("/sized").param("q", "abc"))
+                .andExpect(status().isOk());
+        mvc.perform(get("/sized").param("q", "too-long-value"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.detail").value("Tham số không hợp lệ: q"));
     }
 
     @Test
