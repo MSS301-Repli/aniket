@@ -10,6 +10,7 @@
     </parent>
     <artifactId>chat-service</artifactId>
     <name>chat-service</name>
+    <description>Chat 1-1 qua WebSocket</description>
 
     <dependencies>
         <dependency>

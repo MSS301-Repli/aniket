@@ -1,0 +1,27 @@
+# Mặc định: Git tự chuẩn hoá xuống dòng cho file text.
+* text=auto
+
+# Script chạy trên Linux/container: luôn LF kể cả khi checkout trên Windows.
+*.sh        text eol=lf
+Makefile    text eol=lf
+Dockerfile* text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.alloy     text eol=lf
+
+# Script Windows
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Nhị phân
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.pdf  binary
+*.jar  binary
+*.ttf  binary
+*.otf  binary
