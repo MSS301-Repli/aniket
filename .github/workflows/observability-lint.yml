@@ -23,7 +23,7 @@ jobs:
       # Cùng phiên bản với deploy/compose/obs.yml.
       PROM_IMAGE: prom/prometheus:v2.55.1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: promtool check config + rules
         run: |
           docker run --rm -v "$PWD/deploy/observability/prometheus:/etc/prometheus:ro" \
