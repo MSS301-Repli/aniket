@@ -1,7 +1,7 @@
 # Image chạy từ JAR đã build sẵn (CI đã chạy `mvn verify`): không có Maven/compiler trên máy chủ.
 # Build từ GỐC repo sau khi có target/*.jar:
 #   docker build -f deploy/docker/Dockerfile.runtime --build-arg MODULE_PATH=services/user-service --build-arg APP_PORT=8101 .
-FROM eclipse-temurin:17-jre
+FROM eclipse-temurin:24-jre
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
