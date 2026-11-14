@@ -5,7 +5,7 @@
 # (docker compose đã khai báo sẵn các build-arg này cho từng service.)
 
 ############################ Giai đoạn build ############################
-FROM maven:3.9-eclipse-temurin-17 AS build
+FROM maven:3.9-eclipse-temurin-26 AS build
 ARG MODULE_PATH
 WORKDIR /src
 # Copy cả repo (đã lọc bằng Dockerfile.java.dockerignore). -am build luôn libs/common, libs/outbox-jpa.
